@@ -37,7 +37,6 @@
 
 ```bash
 # Клонировать
-Зарегистрироваться на gitflic , получить логин пароль или ключ апи для git, иначе не даст склонировать
 
 git clone https://gitflic.ru/piroman99/2mon.git
 cd 2mon
