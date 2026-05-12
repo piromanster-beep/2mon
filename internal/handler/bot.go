@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -25,20 +27,38 @@ func NewBotHandler(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Bo
 }
 
 func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	log.Printf("[bot] raw update: %s", string(body))
+
+	// Структура MAX: message.recipient.chat_id, message.body.text
 	var update struct {
 		Message struct {
-			Chat struct {
-				ID string `json:"id"`
-			} `json:"chat"`
-			Text string `json:"text"`
+			Recipient struct {
+				ChatID   int64  `json:"chat_id"`
+				ChatType string `json:"chat_type"`
+				UserID   int64  `json:"user_id"`
+			} `json:"recipient"`
+			Body struct {
+				Text string `json:"text"`
+			} `json:"body"`
+			Sender struct {
+				UserID    int64  `json:"user_id"`
+				FirstName string `json:"first_name"`
+			} `json:"sender"`
 		} `json:"message"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+
+	if err := json.Unmarshal(body, &update); err != nil {
+		log.Printf("[bot] parse error: %v", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	chatID := update.Message.Chat.ID
-	text := strings.TrimSpace(update.Message.Text)
+
+	chatID := fmt.Sprintf("%d", update.Message.Recipient.ChatID)
+	text := strings.TrimSpace(update.Message.Body.Text)
+
+	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
+
 	var response string
 	switch {
 	case text == "/start":
@@ -50,6 +70,8 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	default:
 		response = "Неизвестная команда. Напишите /help"
 	}
+
+	log.Printf("[bot] response to %s: %s", chatID, response)
 	h.sender.Enqueue(model.Message{ChatID: chatID, Text: response})
 	w.WriteHeader(http.StatusOK)
 }
@@ -69,7 +91,7 @@ func (h *BotHandler) handleStart(r *http.Request, chatID string) string {
 	}
 	h.store.CreateUser(r.Context(), user)
 	h.notifier.NotifyAdmins(fmt.Sprintf("🆕 Новый пользователь\nChat ID: %s", chatID))
-	return fmt.Sprintf("Привет! Вы зарегистрированы.\n\nВаш токен: %s\n\nИспользуйте его для настройки вебхука в Zabbix:\nhttps://ваш-сервер/wh/%s\n\nКоманды:\n/status — статистика\n/token — показать токен\n/help — справка", token, token)
+	return fmt.Sprintf("Привет! Вы зарегистрированы.\n\nВаш токен: %s\n\nИспользуйте его для настройки вебхука в Zabbix:\nhttps://2mon.ru/wh/%s\n\nКоманды:\n/status — статистика\n/token — показать токен\n/help — справка", token, token)
 }
 
 func (h *BotHandler) handleToken(r *http.Request, chatID string) string {
