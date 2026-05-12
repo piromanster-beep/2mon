@@ -50,3 +50,8 @@ go mod tidy
 # Запустить
 go run cmd/server/main.go
 
+```
+# Или через Docker
+
+docker-compose up
+
