@@ -55,3 +55,31 @@ go run cmd/server/main.go
 ```bash
 docker-compose up
 ```
+
+## Переменные окружения
+
+| Переменная | Обязательно | По умолчанию | Описание |
+|------------|-------------|-------------|----------|
+| `MONGO_URI` | Да | — | Строка подключения к MongoDB |
+| `MAX_BOT_TOKEN` | Да | — | Токен бота из панели MAX для партнёров |
+| `ADMIN_PASSWORD` | Да | — | Пароль для входа в админку |
+| `MAX_API_URL` | Нет | `https://api.max.ru` | URL API MAX |
+| `RATE_LIMIT` | Нет | `30` | Лимит сообщений в секунду |
+| `QUEUE_SIZE` | Нет | `1000` | Размер очереди сообщений |
+| `PORT` | Нет | `8080` | Порт сервера |
+
+## Как подключить Zabbix
+
+1. Зарегистрироваться у бота в MAX — команда `/start`
+2. Получить токен — команда `/token`
+3. В Zabbix: Alerts → Media types → создать Webhook
+   - URL: `https://ваш-сервер/wh/ваш-токен`
+   - Payload:
+     ```json
+     {
+       "subject": "{ALERT.SUBJECT}",
+       "message": "{ALERT.MESSAGE}",
+       "severity": "{ALERT.SEVERITY}"
+     }
+```
+Назначить пользователю в Zabbix этот тип оповещения
