@@ -52,6 +52,6 @@ go run cmd/server/main.go
 
 ```
 # Или через Docker
-
+```bash
 docker-compose up
-
+```
