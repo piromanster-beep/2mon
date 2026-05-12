@@ -1,1 +1,55 @@
-<!-- Админка 2mon --> 
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>2mon — админка</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        .ban { color: red; }
+        .unban { color: green; }
+        .limit-form { display: inline; }
+        .limit-form input { width: 60px; }
+    </style>
+</head>
+<body>
+    <h1>2mon Admin</h1>
+
+    <h2>Пользователи</h2>
+    <table>
+        <tr>
+            <th>Chat ID</th>
+            <th>Токен</th>
+            <th>Лимит</th>
+            <th>Сегодня</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        {{range .Users}}
+        <tr>
+            <td>{{.ChatID}}</td>
+            <td><code>{{.Token}}</code></td>
+            <td>
+                <form class="limit-form" method="POST" action="/admin/limit/{{.ChatID}}">
+                    <input type="number" name="limit" value="{{.DailyLimit}}">
+                    <button type="submit">ОК</button>
+                </form>
+            </td>
+            <td>{{.MsgCountToday}}</td>
+            <td>
+                {{if .IsActive}}✅{{else}}❌{{end}}
+            </td>
+            <td>
+                <a href="/admin/ban/{{.ChatID}}">
+                    {{if .IsActive}}<span class="ban">Забанить</span>{{else}}<span class="unban">Разбанить</span>{{end}}
+                </a>
+            </td>
+        </tr>
+        {{end}}
+    </table>
+
+    <p><a href="/admin">Выйти</a></p>
+</body>
+</html><!-- Админка 2mon --> 
