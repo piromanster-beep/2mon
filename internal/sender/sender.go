@@ -14,7 +14,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Sender — отправщик сообщений в MAX
 type Sender struct {
 	botToken string
 	apiURL   string
@@ -22,7 +21,6 @@ type Sender struct {
 	queue    chan model.Message
 }
 
-// New — создать новый Sender
 func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
 	return &Sender{
 		botToken: botToken,
@@ -32,18 +30,15 @@ func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
 	}
 }
 
-// Start — запустить воркер обработки очереди
 func (s *Sender) Start(ctx context.Context) {
 	go func() {
 		for {
 			select {
 			case msg := <-s.queue:
-				// Ждём разрешения rate limiter'а
 				if err := s.limiter.Wait(ctx); err != nil {
 					log.Printf("[sender] limiter wait: %v", err)
 					continue
 				}
-				// Отправляем в MAX
 				if err := s.sendToMax(ctx, msg); err != nil {
 					log.Printf("[sender] send error: %v", err)
 				}
@@ -56,7 +51,6 @@ func (s *Sender) Start(ctx context.Context) {
 	}()
 }
 
-// drainQueue — опустошить очередь перед выключением
 func (s *Sender) drainQueue() {
 	close(s.queue)
 	for msg := range s.queue {
@@ -66,7 +60,6 @@ func (s *Sender) drainQueue() {
 	}
 }
 
-// Enqueue — положить сообщение в очередь
 func (s *Sender) Enqueue(msg model.Message) error {
 	select {
 	case s.queue <- msg:
@@ -76,18 +69,15 @@ func (s *Sender) Enqueue(msg model.Message) error {
 	}
 }
 
-// QueueLen — текущий размер очереди
 func (s *Sender) QueueLen() int {
 	return len(s.queue)
 }
 
-// sendToMax — HTTP-запрос к MAX API
 func (s *Sender) sendToMax(ctx context.Context, msg model.Message) error {
-	url := fmt.Sprintf("%s/bot%s/sendMessage", s.apiURL, s.botToken)
+	url := fmt.Sprintf("%s/messages?chat_id=%s", s.apiURL, msg.ChatID)
 
 	body := map[string]string{
-		"chat_id": msg.ChatID,
-		"text":    msg.Text,
+		"text": msg.Text,
 	}
 
 	jsonBody, err := json.Marshal(body)
@@ -99,6 +89,7 @@ func (s *Sender) sendToMax(ctx context.Context, msg model.Message) error {
 	if err != nil {
 		return fmt.Errorf("new request: %w", err)
 	}
+	req.Header.Set("Authorization", s.botToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
