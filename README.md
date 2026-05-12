@@ -126,5 +126,5 @@ Content-Type: application/json
 | `/status` | Статистика за сегодня |
 | `/help` | Справка |
 
-## Лицензия
-MIT 
+## Лицензия [MIT]( /blob/raw?file=LICENSE )
+ 
