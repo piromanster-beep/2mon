@@ -107,7 +107,7 @@ docker-compose up
      }
      ```
    - Timeout: `30s`
-   **Вкладка Message templates , добавляем Message type все нам нужные**
+   - **Вкладка Message templates , добавляем Message type все нам нужные**
 
 4. **Administration → Users → ваш пользователь → Media → Add**
    - Type: `2mon`
