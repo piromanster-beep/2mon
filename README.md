@@ -126,5 +126,5 @@ Content-Type: application/json
 | `/status` | Статистика за сегодня |
 | `/help` | Справка |
 
-## Лицензия [MIT]( /blob/raw?file=LICENSE )
+## Лицензия [MIT]( https://gitflic.ru/project/piroman99/2mon/blob/raw?file=LICENSE )
  
