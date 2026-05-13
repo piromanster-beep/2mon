@@ -105,9 +105,16 @@ docker-compose up
      catch (err) {
          throw err;
      }
+     ```
+   - Timeout: `30s`
 
+4. **Administration → Users → ваш пользователь → Media → Add**
+   - Type: `2mon`
+   - Send to: `ваш_токен_из_бота`
 
-    | `Timeout:` | `30s` |
+5. **Configuration → Actions → Create action**
+   - Conditions: `Trigger severity >= Warning`
+   - Operations: Send message to users via `2mon`
 
 4. **Administration → Users → ваш пользователь → Media → Add**
    - Type: `2mon`
