@@ -28,7 +28,7 @@ func NewBotHandler(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Bo
 
 func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
-	log.Printf("[bot] raw update: %s", string(body))
+//debug	log.Printf("[bot] raw update: %s", string(body))
 
 	// Структура MAX: message.recipient.chat_id, message.body.text
 	var update struct {
@@ -57,7 +57,7 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	chatID := fmt.Sprintf("%d", update.Message.Recipient.ChatID)
 	text := strings.TrimSpace(update.Message.Body.Text)
 
-	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
+//debug	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
 
 	var response string
 	switch {
@@ -67,6 +67,8 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		response = h.handleToken(r, chatID)
 	case text == "/status":
 		response = h.handleStatus(r, chatID)
+	case text == "/help":
+		response = "Доступные команды:\n\n/start — регистрация\n/token — показать токен\n/status — статистика за сегодня\n/help — справка"
 	default:
 		response = "Неизвестная команда. Напишите /help"
 	}

@@ -8,6 +8,7 @@ import (
 	"gitflic.ru/piroman99/2mon/internal/model"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -113,6 +114,7 @@ func (s *Store) FindByChatID(ctx context.Context, chatID string) (*model.User, e
 
 // CreateUser — создать нового пользователя
 func (s *Store) CreateUser(ctx context.Context, user *model.User) error {
+	user.ID = primitive.NewObjectID().Hex()
 	user.CreatedAt = time.Now()
 	user.MsgDate = time.Now().Format("2006-01-02")
 	_, err := s.users.InsertOne(ctx, user)
