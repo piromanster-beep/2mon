@@ -71,20 +71,51 @@ docker-compose up
 
 ## Как подключить Zabbix
 
-1. Зарегистрироваться у бота в MAX — команда `/start`
-2. Получить токен — команда `/token`
-3. В Zabbix: Alerts → Media types → создать Webhook
-   - URL: `https://ваш-сервер/wh/ваш-токен`
-   - Payload:
-     ```json
-     {
-       "subject": "{ALERT.SUBJECT}",
-       "message": "{ALERT.MESSAGE}",
-       "severity": "{ALERT.SEVERITY}"
-     }
-```
-Назначить пользователю в Zabbix этот тип оповещения
+1. Зарегистрируйтесь у бота в MAX — команда `/start`
+2. Получите токен — команда `/token`
+3. В Zabbix: **Alerts → Media types → Create media type**
+   - Type: `Webhook`
+   - Name: `2mon`
+   - Parameters:
 
+     | Name | Value |
+     |------|-------|
+     | `URL` | `https://2mon.ru/wh/{ALERT.SENDTO}` |
+     | `Subject` | `{ALERT.SUBJECT}` |
+     | `Message` | `{ALERT.MESSAGE}` |
+     | `Severity` | `{ALERT.SEVERITY}` |
+
+   - Script:
+     ```javascript
+     try {
+         var params = JSON.parse(value);
+         var body = JSON.stringify({
+             subject: params.Subject,
+             message: params.Message,
+             severity: params.Severity
+         });
+         var request = new HttpRequest();
+         request.addHeader('Content-Type: application/json');
+         var response = request.post(params.URL, body);
+         if (request.getStatus() !== 200) {
+             throw 'HTTP ' + request.getStatus() + ': ' + response;
+         }
+         return 'OK';
+     }
+     catch (err) {
+         throw err;
+     }
+
+
+    | `Timeout:` | `30s` |
+
+4. **Administration → Users → ваш пользователь → Media → Add**
+   - Type: `2mon`
+   - Send to: `ваш_токен_из_бота`
+
+5. **Configuration → Actions → Create action**
+   - Conditions: `Trigger severity >= Warning`
+   - Operations: Send message to users via `2mon`
 ## Админка
 
 Доступна по адресу `/admin`. После ввода пароля можно:
