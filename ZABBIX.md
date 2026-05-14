@@ -17,7 +17,8 @@
     Message: {ALERT.MESSAGE}
     Severity: {ALERT.SEVERITY}
     
-  Script:```
+  Script:
+  ```
     try {
         var params = JSON.parse(value);
         var body = JSON.stringify({
