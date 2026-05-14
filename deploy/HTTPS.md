@@ -38,6 +38,15 @@ curl -sI https://ваш-домен.ru | head -5
 
 ## 5. Вебхук MAX
 
-В панели MAX укажите URL вебхука: https://ваш-домен.ru/bot
 
-Подробнее в разделе «Как подключить Zabbix» в README.
+Вебхук настраивается через API MAX. Замените `ТОКЕН_БОТА` на токен из панели MAX:
+
+```bash
+curl -X POST "https://platform-api.max.ru/subscriptions" \
+  -H "Authorization: ТОКЕН_БОТА" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "url": "https://ваш-домен.ru/bot",
+  "update_types": ["message_created", "bot_started"]
+}'
+```
