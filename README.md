@@ -33,6 +33,7 @@
 
 ## Быстрый старт
 
+
 ## Требования
 
 - Go 1.21+
@@ -58,9 +59,17 @@ go run cmd/server/main.go
 
 ```
 # Или через Docker
-```bash
-docker-compose up
-```
+## Деплой на сервер
+
+Подробная инструкция по настройке HTTPS и Nginx: [deploy/HTTPS.md](deploy/HTTPS.md)
+
+Кратко:
+1. Установить Docker и Docker Compose
+2. Склонировать репозиторий
+3. Создать `.env` из `.env.example`
+4. `docker compose up -d`
+5. Настроить Nginx + Certbot (конфиг в `deploy/nginx-2mon.conf`)
+6. Настроить вебхук в MAX на `https://ваш-домен.ru/bot`
 
 ## Переменные окружения
 
