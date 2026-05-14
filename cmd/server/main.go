@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
+	"strings"
 	"gitflic.ru/piroman99/2mon/internal/config"
 	"gitflic.ru/piroman99/2mon/internal/handler"
 	"gitflic.ru/piroman99/2mon/internal/notifier"
@@ -84,6 +84,22 @@ func main() {
 			log.Fatalf("сервер: %v", err)
 		}
 	}()
+
+
+        // Установка команд бота при старте
+        go func() {
+                body := `{"commands":[{"name":"start","description":"Регистрация"},{"name":"token","description":"Показать токен"},{"name":"status","description":"Статистика за сегодня"},{"name":"help","description":"Справка"}]}`
+                req, _ := http.NewRequest("PATCH", cfg.MaxAPIURL+"/me", strings.NewReader(body))
+                req.Header.Set("Authorization", cfg.MaxBotToken)
+                req.Header.Set("Content-Type", "application/json")
+                resp, err := http.DefaultClient.Do(req)
+                if err != nil {
+                        log.Printf("[commands] ошибка: %v", err)
+                        return
+                }
+                resp.Body.Close()
+                log.Println("[commands] команды бота обновлены")
+        }()
 
 	// Ждём сигнал завершения
 	quit := make(chan os.Signal, 1)

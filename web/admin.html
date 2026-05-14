@@ -25,6 +25,7 @@
             <th>Лимит</th>
             <th>Сегодня</th>
             <th>Статус</th>
+            <th>Админ</th>
             <th>Действия</th>
         </tr>
         {{range .Users}}
@@ -41,6 +42,9 @@
             <td>
                 {{if .IsActive}}✅{{else}}❌{{end}}
             </td>
+            <td>
+		{{if .IsAdmin}}👑{{else}}—{{end}}
+	    </td>
             <td>
                 <a href="/admin/ban/{{.ChatID}}">
                     {{if .IsActive}}<span class="ban">Забанить</span>{{else}}<span class="unban">Разбанить</span>{{end}}
