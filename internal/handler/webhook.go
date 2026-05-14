@@ -75,6 +75,14 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			Status: "limit_exceeded",
 		})
 
+		// Уведомляем пользователя один раз в день
+		if count == user.DailyLimit+1 {
+			h.sender.Enqueue(model.Message{
+				ChatID: user.ChatID,
+				Text:   fmt.Sprintf("⚠️ Дневной лимит сообщений исчерпан (%d/%d). Лимит сбросится в полночь.", user.DailyLimit, user.DailyLimit),
+			})
+		}
+
 		http.Error(w, "daily limit exceeded", http.StatusTooManyRequests)
 		return
 	}
