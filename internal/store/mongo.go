@@ -284,3 +284,49 @@ func (s *Store) TopUsersByMessages(ctx context.Context, date string, limit int) 
 
 	return stats, nil
 }
+
+// UpdateHeartbeat — обновить время последнего heartbeat
+func (s *Store) UpdateHeartbeat(ctx context.Context, userID string) error {
+	_, err := s.users.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{
+			"$set": bson.M{
+				"last_heartbeat":       time.Now(),
+				"heartbeat_alert_sent": false,
+			},
+		},
+	)
+	return err
+}
+
+// FindUsersWithDeadHeartbeat — найти пользователей с просроченным heartbeat
+func (s *Store) FindUsersWithDeadHeartbeat(ctx context.Context, timeout time.Duration) ([]model.User, error) {
+	deadline := time.Now().Add(-timeout)
+	cursor, err := s.users.Find(ctx, bson.M{
+		"is_active":            true,
+		"heartbeat_interval":   bson.M{"$gt": 0},
+		"last_heartbeat":       bson.M{"$lt": deadline},
+		"heartbeat_alert_sent": false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+// MarkHeartbeatAlertSent — отметить что уведомление отправлено
+func (s *Store) MarkHeartbeatAlertSent(ctx context.Context, userID string) error {
+	_, err := s.users.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{"$set": bson.M{"heartbeat_alert_sent": true}},
+	)
+	return err
+}

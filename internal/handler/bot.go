@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
+	"time"
 	"gitflic.ru/piroman99/2mon/internal/model"
 	"gitflic.ru/piroman99/2mon/internal/notifier"
 	"gitflic.ru/piroman99/2mon/internal/sender"
@@ -81,7 +81,9 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	case text == "/status":
 		response = h.handleStatus(r, chatID)
 	case text == "/help":
-		response = "Доступные команды:\n\n/start — регистрация\n/token — показать токен\n/status — статистика за сегодня\n/help — справка"
+		response = "Доступные команды:\n\n/start — регистрация\n/token — показать токен\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/help — справка"
+	case text == "/heartbeat":
+		response = h.handleHeartbeat(r, chatID)
 	default:
 		response = "Неизвестная команда. Напишите /help"
 	}
@@ -123,4 +125,18 @@ func (h *BotHandler) handleStatus(r *http.Request, chatID string) string {
 		return "Вы не зарегистрированы. Напишите /start"
 	}
 	return fmt.Sprintf("📊 Статистика за сегодня\n\nОтправлено: %d / %d\nОсталось: %d", user.MsgCountToday, user.DailyLimit, user.DailyLimit-user.MsgCountToday)
+}
+
+func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {
+	user, _ := h.store.FindByChatID(r.Context(), chatID)
+	if user == nil {
+		return "Вы не зарегистрированы. Напишите /start"
+	}
+
+	if user.LastHeartbeat.IsZero() {
+		return "❤️ Heartbeat ещё не настроен.\n\nДобавьте в Zabbix Action, который шлёт вебхук с subject=heartbeat на ваш URL.\nИнтервал: раз в 5 минут."
+	}
+
+	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
+	return fmt.Sprintf("❤️ Heartbeat: OK\nПоследний сигнал: %s назад", ago)
 }

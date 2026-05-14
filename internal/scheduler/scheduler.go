@@ -33,6 +33,8 @@ func New(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Scheduler {
 func (s *Scheduler) Start(ctx context.Context) {
 	s.cron.AddFunc("0 9 * * 1-5", s.sendStatsToUsers)
 	s.cron.AddFunc("5 9 * * 1-5", s.sendStatsToAdmins)
+	// Проверка heartbeat каждую минуту
+	s.cron.AddFunc("* * * * *", s.checkHeartbeats)
 	s.cron.Start()
 	log.Println("[scheduler] запущен")
 	<-ctx.Done()
@@ -69,4 +71,27 @@ func (s *Scheduler) sendStatsToAdmins() {
 		}
 	}
 	s.notifier.NotifyAdmins(text)
+}
+
+func (s *Scheduler) checkHeartbeats() {
+	users, err := s.store.FindUsersWithDeadHeartbeat(context.Background(), 15*time.Minute)
+	if err != nil {
+		log.Printf("[scheduler] heartbeat check error: %v", err)
+		return
+	}
+
+	for _, user := range users {
+		s.notifier.NotifyAdmins(fmt.Sprintf(
+			"🔴 Heartbeat: пользователь %s не отправлял heartbeat более 15 минут",
+			user.ChatID,
+		))
+
+		s.store.MarkHeartbeatAlertSent(context.Background(), user.ID)
+
+		// Уведомляем самого пользователя
+		s.sender.Enqueue(model.Message{
+			ChatID: user.ChatID,
+			Text:   "⚠️ Ваш Zabbix не отправляет heartbeat более 15 минут. Проверьте соединение.",
+		})
+	}
 }

@@ -88,7 +88,7 @@ func main() {
 
         // Установка команд бота при старте
         go func() {
-                body := `{"commands":[{"name":"start","description":"Регистрация"},{"name":"token","description":"Показать токен"},{"name":"status","description":"Статистика за сегодня"},{"name":"help","description":"Справка"}]}`
+                body := `{"commands":[{"name":"start","description":"Регистрация"},{"name":"token","description":"Показать токен"},{"name":"status","description":"Статистика за сегодня"},{"name":"heartbeat","description":"Статус heartbeat"},{"name":"help","description":"Справка"}]}`
                 req, _ := http.NewRequest("PATCH", cfg.MaxAPIURL+"/me", strings.NewReader(body))
                 req.Header.Set("Authorization", cfg.MaxBotToken)
                 req.Header.Set("Content-Type", "application/json")

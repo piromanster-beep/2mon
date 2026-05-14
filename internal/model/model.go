@@ -12,6 +12,9 @@ type User struct {
 	MsgCountToday int       `bson:"msg_count_today" json:"msg_count_today"`
 	MsgDate       string    `bson:"msg_date" json:"msg_date"`
 	CreatedAt     time.Time `bson:"created_at" json:"created_at"`
+	LastHeartbeat      time.Time `bson:"last_heartbeat" json:"last_heartbeat"`
+	HeartbeatInterval  int       `bson:"heartbeat_interval" json:"heartbeat_interval"`
+	HeartbeatAlertSent bool      `bson:"heartbeat_alert_sent" json:"heartbeat_alert_sent"`
 }
 
 type MessageLog struct {

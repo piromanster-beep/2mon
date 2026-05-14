@@ -59,6 +59,26 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Heartbeat — не считаем в лимит, просто обновляем время
+	if strings.ToLower(payload.Subject) == "heartbeat" {
+		h.store.UpdateHeartbeat(r.Context(), user.ID)
+
+		// Если ранее был alert — уведомляем о восстановлении
+		if user.HeartbeatAlertSent {
+			h.sender.Enqueue(model.Message{
+				ChatID: user.ChatID,
+				Text:   "✅ Heartbeat восстановлен. Ваш Zabbix снова на связи.",
+			})
+			// Сбрасываем флаг (UpdateHeartbeat уже сбросил, но на всякий случай)
+			h.store.MarkHeartbeatAlertSent(r.Context(), user.ID)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "heartbeat_ok"})
+		return
+	}
+
 	// Проверяем лимит
 	count, err := h.store.IncrementMsgCount(r.Context(), user)
 	if err != nil {
