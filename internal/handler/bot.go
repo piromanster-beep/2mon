@@ -54,8 +54,21 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chatID := fmt.Sprintf("%d", update.Message.Recipient.ChatID)
-	text := strings.TrimSpace(update.Message.Body.Text)
+	var chatID string
+	var text string
+	if update.Message.Recipient.ChatID == 0 {
+		var raw struct {
+			ChatID int64 `json:"chat_id"`
+		}
+		json.Unmarshal(body, &raw)
+		if raw.ChatID != 0 {
+			chatID = fmt.Sprintf("%d", raw.ChatID)
+			text = "/start"
+		}
+	} else {
+		chatID = fmt.Sprintf("%d", update.Message.Recipient.ChatID)
+		text = strings.TrimSpace(update.Message.Body.Text)
+	}
 
 //debug	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
 
