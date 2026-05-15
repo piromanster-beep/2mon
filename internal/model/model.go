@@ -15,6 +15,7 @@ type User struct {
 	LastHeartbeat      time.Time `bson:"last_heartbeat" json:"last_heartbeat"`
 	HeartbeatInterval  int       `bson:"heartbeat_interval" json:"heartbeat_interval"`
 	HeartbeatAlertSent bool      `bson:"heartbeat_alert_sent" json:"heartbeat_alert_sent"`
+	HeartbeatOK        bool      `bson:"-" json:"heartbeat_ok"`
 }
 
 type MessageLog struct {

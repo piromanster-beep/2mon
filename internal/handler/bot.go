@@ -137,6 +137,19 @@ func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {
 		return "❤️ Heartbeat ещё не настроен.\n\nДобавьте в Zabbix Action, который шлёт вебхук с subject=heartbeat на ваш URL.\nИнтервал: раз в 5 минут."
 	}
 
+//	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
+//	return fmt.Sprintf("❤️ Heartbeat: OK\nПоследний сигнал: %s назад", ago)
+
 	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
-	return fmt.Sprintf("❤️ Heartbeat: OK\nПоследний сигнал: %s назад", ago)
+	timeout := time.Duration(user.HeartbeatInterval+10) * time.Minute
+	if user.HeartbeatInterval == 0 {
+		timeout = 15 * time.Minute
+	}
+
+	if ago > timeout {
+		return fmt.Sprintf("🔴 Heartbeat: нет сигнала\nПоследний сигнал: %s назад\nТаймаут: %s", ago, timeout)
+	}
+
+	return fmt.Sprintf("🟢 Heartbeat: OK\nПоследний сигнал: %s назад", ago)
+//
 }

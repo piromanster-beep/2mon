@@ -26,6 +26,7 @@
             <th>Сегодня</th>
             <th>Статус</th>
             <th>Админ</th>
+			<th>Heartbeat</th>
             <th>Действия</th>
         </tr>
         {{range .Users}}
@@ -44,6 +45,9 @@
             </td>
             <td>
 		{{if .IsAdmin}}👑{{else}}—{{end}}
+	    </td>
+            <td>
+		{{if .LastHeartbeat.IsZero}}—{{else if .HeartbeatOK}}🟢{{else}}🔴{{end}}
 	    </td>
             <td>
                 <a href="/admin/ban/{{.ChatID}}">

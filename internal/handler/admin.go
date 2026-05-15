@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
+	"time"
 	"gitflic.ru/piroman99/2mon/internal/store"
 )
 
@@ -77,6 +77,18 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Отдельно ищем админов (могут быть неактивны)
 	admins, _ := h.store.FindAdmins(r.Context())
+
+	// Вычисляем статус heartbeat
+	now := time.Now()
+	for i := range users {
+		if !users[i].LastHeartbeat.IsZero() {
+			timeout := time.Duration(users[i].HeartbeatInterval+10) * time.Minute
+			if users[i].HeartbeatInterval == 0 {
+				timeout = 15 * time.Minute
+			}
+			users[i].HeartbeatOK = now.Sub(users[i].LastHeartbeat) < timeout
+		}
+	}
 
 	data := struct {
 		Users  interface{}
