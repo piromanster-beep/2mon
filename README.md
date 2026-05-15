@@ -42,7 +42,7 @@
 ## Быстрый старт
 
 ```bash
-git clone https://gitflic.ru/piroman99/2mon.git
+git clone https://gitflic.ru/project/piroman99/2mon.git
 cd 2mon
 cp .env.example .env
 # заполнить .env своими данными
