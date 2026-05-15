@@ -1,20 +1,23 @@
-
+cat > ~/2mon/README.md << 'ENDOFFILE'
 # 2mon
 
 Прокси-сервис для доставки уведомлений в мессенджер MAX.
 
 ## Что делает
 
-Принимает вебхуки от Zabbix (и не только) и пересылает их в MAX — в личный чат с ботом. Пользователь регистрируется один раз, получает токен, подключает его в Zabbix — и всё, уведомления пошли.
+Принимает вебхуки от систем мониторинга (Zabbix, Prometheus, Grafana и других) и пересылает их в MAX — в личный чат с ботом. Пользователь регистрируется один раз, получает токен, подключает его в своей системе — и всё, уведомления пошли.
 
 ## Возможности
 
 - Приём вебхуков от Zabbix и других сервисов
+- Heartbeat — мониторинг доступности Zabbix
 - Единая очередь с соблюдением лимита MAX (30 сообщений/сек)
 - Индивидуальные дневные лимиты для каждого пользователя
+- Уведомление о превышении лимита
 - Регистрация через бота в MAX — `/start`
 - Повторная выдача токена — `/token`
 - Проверка статистики — `/status`
+- Статус heartbeat — `/heartbeat`
 - Ежедневная рассылка статистики пользователям
 - Админка для управления пользователями и лимитами
 - Уведомления администратору о новых регистрациях
@@ -31,34 +34,21 @@
 | Cron | robfig/cron |
 | Админка | HTML на серверном рендеринге |
 
-## Быстрый старт
-
-
 ## Требования
 
-- Go 1.21+
-- MongoDB 7.0+
+- Docker и Docker Compose
 - Токен бота MAX (получить в панели MAX для партнёров)
 - Домен с настроенным HTTPS (для вебхуков MAX требуется SSL на 443 порту)
 
-```bash
-# Клонировать
+## Быстрый старт
 
+```bash
 git clone https://gitflic.ru/piroman99/2mon.git
 cd 2mon
-
-# Создать .env из примера
 cp .env.example .env
-# Заполнить .env своими данными
-
-# Установить зависимости
-go mod tidy
-
-# Запустить
-go run cmd/server/main.go
-
+# заполнить .env своими данными
+docker compose up -d
 ```
-# Или через Docker
 ## Деплой на сервер
 
 Подробная инструкция по настройке HTTPS и Nginx: [deploy/HTTPS.md](deploy/HTTPS.md)
@@ -78,66 +68,23 @@ go run cmd/server/main.go
 | `MONGO_URI` | Да | — | Строка подключения к MongoDB |
 | `MAX_BOT_TOKEN` | Да | — | Токен бота из панели MAX для партнёров |
 | `ADMIN_PASSWORD` | Да | — | Пароль для входа в админку |
-| `MAX_API_URL` | Нет | `https://api.max.ru` | URL API MAX |
+| `MAX_API_URL` | Нет | `https://platform-api.max.ru` | URL API MAX |
 | `RATE_LIMIT` | Нет | `30` | Лимит сообщений в секунду |
 | `QUEUE_SIZE` | Нет | `1000` | Размер очереди сообщений |
 | `PORT` | Нет | `8080` | Порт сервера |
 
-## Как подключить Zabbix
+## Подключение Zabbix
 
+Полная инструкция по настройке Zabbix (webhook + heartbeat): [ZABBIX.md](ZABBIX.md)
+
+Кратко:
 1. Зарегистрируйтесь у бота в MAX — команда `/start`
 2. Получите токен — команда `/token`
-3. В Zabbix: **Alerts → Media types → Create media type**
-   - Type: `Webhook`
-   - Name: `2mon`
-   - Parameters:
+3. В Zabbix создайте Media type Webhook (скрипт в [ZABBIX.md](ZABBIX.md))
+4. Добавьте Media пользователю с токеном
+5. Создайте Action для отправки уведомлений
+6. Для heartbeat настройте Web scenario (см. [ZABBIX.md](ZABBIX.md))
 
-     | Name | Value |
-     |------|-------|
-     | `URL` | `https://2mon.ru/wh/{ALERT.SENDTO}` |
-     | `Subject` | `{ALERT.SUBJECT}` |
-     | `Message` | `{ALERT.MESSAGE}` |
-     | `Severity` | `{ALERT.SEVERITY}` |
-
-   - Script:
-     ```javascript
-     try {
-         var params = JSON.parse(value);
-         var body = JSON.stringify({
-             subject: params.Subject,
-             message: params.Message,
-             severity: params.Severity
-         });
-         var request = new HttpRequest();
-         request.addHeader('Content-Type: application/json');
-         var response = request.post(params.URL, body);
-         if (request.getStatus() !== 200) {
-             throw 'HTTP ' + request.getStatus() + ': ' + response;
-         }
-         return 'OK';
-     }
-     catch (err) {
-         throw err;
-     }
-     ```
-   - Timeout: `30s`
-   - **Вкладка Message templates , добавляем Message type все нам нужные**
-
-4. **Administration → Users → ваш пользователь → Media → Add**
-   - Type: `2mon`
-   - Send to: `ваш_токен_из_бота`
-
-5. **Configuration → Actions → Create action**
-   - Conditions: `Trigger severity >= Warning`
-   - Operations: Send message to users via `2mon`
-
-4. **Administration → Users → ваш пользователь → Media → Add**
-   - Type: `2mon`
-   - Send to: `ваш_токен_из_бота`
-
-5. **Configuration → Actions → Create action**
-   - Conditions: `Trigger severity >= Warning`
-   - Operations: Send message to users via `2mon`
 ## Админка
 
 Доступна по адресу `/admin`. После ввода пароля можно:
@@ -145,21 +92,22 @@ go run cmd/server/main.go
 - Просматривать список пользователей
 - Блокировать/разблокировать
 - Изменять дневной лимит сообщений
+- Видеть статус heartbeat
 
 Первого администратора нужно создать вручную в MongoDB — установить `is_admin: true`.
 
 ## API вебхуков
 
 ### Отправка уведомления
-```json
-POST /wh/{token}
-Content-Type: application/json
+```
+    POST /wh/{token}
+    Content-Type: application/json
 
-{
-"subject": "High CPU Load",
-"message": "CPU usage is above 90%",
-"severity": "critical"
-}
+    {
+      "subject": "High CPU Load",
+      "message": "CPU usage is above 90%",
+      "severity": "critical"
+    }
 ```
 ### Ответы
 
@@ -168,7 +116,7 @@ Content-Type: application/json
 | 200 | Сообщение поставлено в очередь |
 | 404 | Неверный токен |
 | 403 | Пользователь заблокирован |
-| 429 | Дневной лимит превышен или очередь переполнена |
+| 429 | Дневной лимит превышен |
 
 ## Команды бота в MAX
 
@@ -177,7 +125,18 @@ Content-Type: application/json
 | `/start` | Регистрация и получение токена |
 | `/token` | Повторно показать токен |
 | `/status` | Статистика за сегодня |
+| `/heartbeat` | Статус heartbeat |
 | `/help` | Справка |
 
-## Лицензия [MIT]( https://gitflic.ru/project/piroman99/2mon/blob/raw?file=LICENSE )
- 
+## Документация
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — устройство сервиса
+- [API.md](API.md) — эндпоинты и форматы
+- [DEVELOPMENT.md](DEVELOPMENT.md) — разработка и добавление новых сервисов
+- [ZABBIX.md](ZABBIX.md) — настройка Zabbix
+- [deploy/HTTPS.md](deploy/HTTPS.md) — настройка HTTPS
+- [SECURITY.md](SECURITY.md) — результаты пентеста
+
+## Лицензия
+
+[MIT](https://gitflic.ru/project/piroman99/2mon/blob/raw?file=LICENSE)
