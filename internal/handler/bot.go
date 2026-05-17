@@ -80,6 +80,12 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 //debug	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
 
 	var response string
+	// Если сообщение начинается с @ — ищем команду после первого пробела
+	if strings.HasPrefix(text, "@") {
+		if idx := strings.Index(text, " "); idx != -1 {
+			text = text[idx+1:]
+		}
+	}
 	switch {
 	case text == "/start":
 		response = h.handleStart(r, chatID)
