@@ -16,6 +16,7 @@ type User struct {
 	HeartbeatInterval  int       `bson:"heartbeat_interval" json:"heartbeat_interval"`
 	HeartbeatAlertSent bool      `bson:"heartbeat_alert_sent" json:"heartbeat_alert_sent"`
 	HeartbeatOK        bool      `bson:"-" json:"heartbeat_ok"`
+	GroupChatID        string    `bson:"group_chat_id,omitempty" json:"group_chat_id,omitempty"`
 }
 
 type MessageLog struct {

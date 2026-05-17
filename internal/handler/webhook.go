@@ -67,7 +67,7 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		// Если ранее был alert — уведомляем о восстановлении
 		if wasAlertSent {
 			h.sender.Enqueue(model.Message{
-				ChatID: user.ChatID,
+				ChatID: getTargetChat(user),
 				Text:   "✅ Heartbeat восстановлен. Ваш Zabbix снова на связи.",
 			})
 		}
@@ -97,7 +97,7 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		// Уведомляем пользователя один раз в день
 		if count == user.DailyLimit+1 {
 			h.sender.Enqueue(model.Message{
-				ChatID: user.ChatID,
+				ChatID: getTargetChat(user),
 				Text:   fmt.Sprintf("⚠️ Дневной лимит сообщений исчерпан (%d/%d). Лимит сбросится в полночь.", user.DailyLimit, user.DailyLimit),
 			})
 		}
@@ -111,7 +111,7 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// Кладём в очередь на отправку
 	if err := h.sender.Enqueue(model.Message{
-		ChatID: user.ChatID,
+		ChatID: getTargetChat(user),
 		Text:   text,
 	}); err != nil {
 		log.Printf("[webhook] enqueue: %v", err)
@@ -147,4 +147,10 @@ func formatMessage(p model.WebhookPayload) string {
 	}
 
 	return fmt.Sprintf("%s *%s*\n%s", emoji, p.Subject, p.Message)
+}
+func getTargetChat(user *model.User) string {
+	if user.GroupChatID != "" {
+		return user.GroupChatID
+	}
+	return user.ChatID
 }

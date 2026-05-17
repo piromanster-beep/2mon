@@ -28,10 +28,11 @@ func NewBotHandler(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Bo
 
 func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
-//debug	log.Printf("[bot] raw update: %s", string(body))
+//debug log.Printf("[bot] raw update: %s", string(body))
 
 	// Структура MAX: message.recipient.chat_id, message.body.text
 	var update struct {
+	UpdateType string `json:"update_type"`
 		Message struct {
 			Recipient struct {
 				ChatID   int64  `json:"chat_id"`
@@ -56,6 +57,12 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var chatID string
 	var text string
+//debug log.Printf("[bot] update_type=%s", update.UpdateType)
+
+	if update.UpdateType == "bot_added" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if update.Message.Recipient.ChatID == 0 {
 		var raw struct {
 			ChatID int64 `json:"chat_id"`
@@ -77,14 +84,29 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	case text == "/start":
 		response = h.handleStart(r, chatID)
 	case text == "/token":
-		response = h.handleToken(r, chatID)
+		// В группах токен не показываем
+		if strings.HasPrefix(chatID, "-") {
+			response = "Токен можно получить только в личных сообщениях. Напишите боту в личку."
+		} else {
+			response = h.handleToken(r, chatID)
+		}
 	case text == "/status":
 		response = h.handleStatus(r, chatID)
 	case text == "/help":
-		response = "Доступные команды:\n\n/start — регистрация\n/token — показать токен\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/help — справка"
+		response = "Доступные команды:\n\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/help — справка"
 	case text == "/heartbeat":
 		response = h.handleHeartbeat(r, chatID)
+	case strings.HasPrefix(text, "/bind"):
+		response = h.handleBind(r, chatID, text)
+	case text == "/groupid":
+		response = fmt.Sprintf("ID этой группы: %s", chatID)
 	default:
+		if strings.HasPrefix(chatID, "-") {
+			if !strings.HasPrefix(text, "/") {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		}
 		response = "Неизвестная команда. Напишите /help"
 	}
 
@@ -152,4 +174,34 @@ func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {
 
 	return fmt.Sprintf("🟢 Heartbeat: OK\nПоследний сигнал: %s назад", ago)
 //
+}
+func (h *BotHandler) handleBind(r *http.Request, chatID string, text string) string {
+	user, _ := h.store.FindByChatID(r.Context(), chatID)
+	if user == nil {
+		return "Вы не зарегистрированы. Напишите /start в личных сообщениях."
+	}
+
+	// /bind GROUP_ID или /bind
+	parts := strings.Fields(text)
+	if len(parts) < 2 {
+		// Показываем текущую привязку
+		if user.GroupChatID != "" {
+			return fmt.Sprintf("Бот привязан к группе %s.\nЧтобы отвязать: /bind off", user.GroupChatID)
+		}
+		return "Укажите ID группы: /bind GROUP_ID\nЧтобы отвязать: /bind off\n\nID группы можно узнать, добавив бота в группу и написав /groupid (в группе)."
+	}
+
+	arg := parts[1]
+
+	// Отвязка
+	if arg == "off" {
+		user.GroupChatID = ""
+		h.store.UpdateUser(r.Context(), user)
+		return "Бот отвязан от группы. Уведомления снова пойдут в личные сообщения."
+	}
+
+	// Привязка
+	user.GroupChatID = arg
+	h.store.UpdateUser(r.Context(), user)
+	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.", arg)
 }
