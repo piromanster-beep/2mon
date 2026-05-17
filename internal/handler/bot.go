@@ -88,7 +88,11 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case text == "/start":
-		response = h.handleStart(r, chatID)
+		if strings.HasPrefix(chatID, "-") {
+			response = fmt.Sprintf("Группа зарегистрирована. Для получения токена напишите боту в личку: /bind %s", chatID)
+		} else {
+			response = h.handleStart(r, chatID)
+		}
 	case text == "/token":
 		// В группах токен не показываем
 		if strings.HasPrefix(chatID, "-") {
@@ -203,11 +207,23 @@ func (h *BotHandler) handleBind(r *http.Request, chatID string, text string) str
 	if arg == "off" {
 		user.GroupChatID = ""
 		h.store.UpdateUser(r.Context(), user)
+	groupUser, _ := h.store.FindByChatID(r.Context(), arg)
+	groupToken := user.Token
+	if groupUser != nil {
+		groupToken = groupUser.Token
+	}
+	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.\n\nТокен для настройки Zabbix: %s", arg, groupToken)
 		return "Бот отвязан от группы. Уведомления снова пойдут в личные сообщения."
 	}
 
 	// Привязка
 	user.GroupChatID = arg
 	h.store.UpdateUser(r.Context(), user)
+	groupUser, _ := h.store.FindByChatID(r.Context(), arg)
+	groupToken := user.Token
+	if groupUser != nil {
+		groupToken = groupUser.Token
+	}
+	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.\n\nТокен для настройки Zabbix: %s", arg, groupToken)
 	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.", arg)
 }
