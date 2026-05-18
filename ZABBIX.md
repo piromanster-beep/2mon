@@ -1,4 +1,4 @@
-НАСТРОЙКА ZABBIX ДЛЯ 2mon
+## НАСТРОЙКА ZABBIX ДЛЯ 2mon
 
 Два компонента:
 1. Webhook для алертов — Zabbix шлёт уведомления о проблемах
@@ -38,6 +38,51 @@
         throw err;
     }
 ```
+## Настройка эмодзи в сообщениях MAX
+
+По умолчанию Zabbix отправляет в MAX уведомления без эмодзи. Чтобы добавить визуальные индикаторы (❌, ✅, ℹ️), нужно настроить **Message templates** в Media Type.
+
+### Шаги
+
+1. `Administration` → `Media types` → выберите ваш Media Type (например, `MAX`)
+2. Перейдите на вкладку **Message templates**
+3. Добавьте три шаблона:
+
+#### Problem
+
+| Поле | Значение |
+|------|----------|
+| Message type | `Problem` |
+| Subject | `❌ Problem: {EVENT.NAME}` |
+| Message | `❌ Проблема началась в {EVENT.TIME} {EVENT.DATE}\nПроблема: {EVENT.NAME}\nХост: {HOST.NAME}\nВажность: {EVENT.SEVERITY}\nID проблемы: {EVENT.ID}` |
+
+#### Problem recovery
+
+| Поле | Значение |
+|------|----------|
+| Message type | `Problem recovery` |
+| Subject | `✅ Resolved in {EVENT.DURATION}: {EVENT.NAME}` |
+| Message | `✅ Проблема решена в {EVENT.RECOVERY.TIME} {EVENT.RECOVERY.DATE}\nПроблема: {EVENT.RECOVERY.NAME}\nДлительность: {EVENT.DURATION}\nХост: {HOST.NAME}\nВажность: {EVENT.SEVERITY}` |
+
+#### Problem update (опционально)
+
+| Поле | Значение |
+|------|----------|
+| Message type | `Problem update` |
+| Subject | `ℹ️ Updated: {EVENT.NAME}` |
+| Message | `{USER.FULLNAME} {EVENT.UPDATE.ACTION} проблему.\n{EVENT.UPDATE.MESSAGE}` |
+
+4. Сохраните Media Type (кнопка **Update**)
+
+### Проверка
+
+- Проблема → сообщение начинается с ❌
+- Восстановление → сообщение начинается с ✅
+- Комментарий → сообщение начинается с ℹ️
+
+### Примечание
+
+Эмодзи — это обычные символы Юникода. MAX поддерживает их без дополнительных настроек.
 1.2. Пользователь
   Administration -> Users -> ваш пользователь -> Media -> Add
   Type: 2mon
@@ -49,7 +94,7 @@
   Operations: Send message to users via 2mon
 
 
-2. WEB SCENARIO ДЛЯ HEARTBEAT
+2.  WEB SCENARIO ДЛЯ HEARTBEAT
 
 2.1. Web scenario
   Configuration -> Hosts -> Zabbix server -> Web scenarios -> Create web scenario
