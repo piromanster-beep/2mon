@@ -103,10 +103,14 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	case text == "/status":
 		response = h.handleStatus(r, chatID)
 	case text == "/help":
-		response = "Доступные команды:\n\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/help — справка"
+		response = "Доступные команды:\n\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/bind — привязать группу\n/help — справка"
 	case text == "/heartbeat":
 		response = h.handleHeartbeat(r, chatID)
 	case strings.HasPrefix(text, "/bind"):
+		if strings.HasPrefix(chatID, "-") {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
 		response = h.handleBind(r, chatID, text)
 	case text == "/groupid":
 		response = fmt.Sprintf("ID этой группы: %s", chatID)
