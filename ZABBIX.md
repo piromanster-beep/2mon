@@ -44,8 +44,8 @@
 
 1.2. Пользователь
   - Administration -> Users -> ваш пользователь -> Media -> Add
-  - Type: 2mon
-  - Send to: ваш_токен_из_бота
+  - Type: `2mon`
+  - Send to: `ваш_токен_из_бота`
 
 1.3. Action
   - Configuration -> Actions -> Trigger actions -> Create action
@@ -57,8 +57,8 @@
 
 2.1. Web scenario
   - Configuration -> Hosts -> Zabbix server -> Web scenarios -> Create web scenario
-  - Name: Heartbeat to 2mon
-  - Update interval: 5m
+  - Name: `Heartbeat to 2mon`
+  - Update interval: `5m`
   - Steps -> Add:
   ```
     Name: Heartbeat
