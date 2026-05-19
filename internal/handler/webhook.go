@@ -58,6 +58,8 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+//debug	log.Printf("[webhook] payload: subject=%s, message=%s, severity=%s", 
+//debug	payload.Subject, payload.Message, payload.Severity) 
 
 	// Heartbeat — не считаем в лимит, просто обновляем время
 	if strings.ToLower(payload.Subject) == "heartbeat" {
@@ -134,6 +136,10 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 // formatMessage — красивое оформление сообщения
 func formatMessage(p model.WebhookPayload) string {
+	// Если проблема решена — зелёный значок
+	if strings.HasPrefix(p.Subject, "Resolved") {
+		return fmt.Sprintf("✅ *%s*\n%s", p.Subject, p.Message)
+	}
 	// Эмодзи по severity
 	emoji := "ℹ️"
 	switch strings.ToLower(p.Severity) {

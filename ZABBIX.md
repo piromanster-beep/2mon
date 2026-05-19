@@ -11,11 +11,14 @@
   Alerts -> Media types -> Create media type
   Type: Webhook
   Name: 2mon
-  Parameters:
-    URL: https://ваш-сервер/wh/{ALERT.SENDTO}
-    Subject: {ALERT.SUBJECT}
-    Message: {ALERT.MESSAGE}
-    Severity: {ALERT.SEVERITY}
+   - Parameters:
+
+     | Name | Value |
+     |------|-------|
+     | `URL` | `https://2mon.ru/wh/{ALERT.SENDTO}` |
+     | `Subject` | `{ALERT.SUBJECT}` |
+     | `Message` | `{ALERT.MESSAGE}` |
+     | `Severity` | `{EVENT.SEVERITY}` |
     
   Script:
   ```
