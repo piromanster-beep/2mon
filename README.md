@@ -154,6 +154,7 @@ docker compose up -d
 - [ZABBIX.md](ZABBIX.md) — настройка Zabbix
 - [deploy/HTTPS.md](deploy/HTTPS.md) — настройка HTTPS
 - [SECURITY.md](SECURITY.md) — результаты пентеста
+- [MONITORING.md](MONITORING.md) — подключение других систем мониторинга
 
 ## Лицензия
 
