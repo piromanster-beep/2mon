@@ -5,7 +5,7 @@ URL вебхука: https://2mon.ru/wh/ВАШ_ТОКЕН
 
 
 ZABBIX
-Подробная инструкция: ZABBIX.md
+Подробная инструкция: [ZABBIX.md](ZABBIX.md)
 
 
 PROMETHEUS + ALERTMANAGER
@@ -41,7 +41,7 @@ CUSTOM_WEBHOOK_MESSAGE='{"subject":"${alarm}","message":"${status_message}","sev
 ```
 
 HEARTBEAT ДЛЯ ДРУГИХ СИСТЕМ
-В Zabbix используется Web scenario (см. ZABBIX.md).
+В Zabbix используется Web scenario (см. [ZABBIX.md](ZABBIX.md)).
 Для других систем — cron на сервере мониторинга:
 
 ```
