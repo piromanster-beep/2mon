@@ -9,7 +9,7 @@
 ## Возможности
 
 - Приём вебхуков от Zabbix и других сервисов
-- Heartbeat — мониторинг доступности Zabbix
+- Heartbeat — мониторинг доступности системы мониторинга
 - Единая очередь с соблюдением лимита MAX (30 сообщений/сек)
 - Индивидуальные дневные лимиты для каждого пользователя
 - Уведомление о превышении лимита
@@ -72,17 +72,17 @@ docker compose up -d
 | `QUEUE_SIZE` | Нет | `1000` | Размер очереди сообщений |
 | `PORT` | Нет | `8080` | Порт сервера |
 
-## Подключение Zabbix
+## Подключение систем мониторинга
 
-Полная инструкция по настройке Zabbix (webhook + heartbeat): [ZABBIX.md](ZABBIX.md)
+Инструкции по настройке Zabbix и других систем: [ZABBIX.md](ZABBIX.md), [MONITORING.md](MONITORING.md)
 
 Кратко:
 1. Зарегистрируйтесь у бота в MAX — команда `/start`
 2. Получите токен — команда `/token`
-3. В Zabbix создайте Media type Webhook (скрипт в [ZABBIX.md](ZABBIX.md))
+3. В Zabbix создайте Media type Webhook (скрипт в [ZABBIX.md](ZABBIX.md), [MONITORING.md](MONITORING.md))
 4. Добавьте Media пользователю с токеном
 5. Создайте Action для отправки уведомлений
-6. Для heartbeat настройте Web scenario (см. [ZABBIX.md](ZABBIX.md))
+6. Для heartbeat настройте Web scenario (см. [ZABBIX.md](ZABBIX.md), [MONITORING.md](MONITORING.md))
 
 ## Админка
 
@@ -151,7 +151,7 @@ docker compose up -d
 - [ARCHITECTURE.md](ARCHITECTURE.md) — устройство сервиса
 - [API.md](API.md) — эндпоинты и форматы
 - [DEVELOPMENT.md](DEVELOPMENT.md) — разработка и добавление новых сервисов
-- [ZABBIX.md](ZABBIX.md) — настройка Zabbix
+- [ZABBIX.md](ZABBIX.md), [MONITORING.md](MONITORING.md) — настройка Zabbix
 - [deploy/HTTPS.md](deploy/HTTPS.md) — настройка HTTPS
 - [SECURITY.md](SECURITY.md) — результаты пентеста
 - [MONITORING.md](MONITORING.md) — подключение других систем мониторинга
