@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os/exec"
 	"strings"
 	"time"
 	"gitflic.ru/piroman99/2mon/internal/store"
@@ -77,6 +78,9 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Отдельно ищем админов (могут быть неактивны)
 	admins, _ := h.store.FindAdmins(r.Context())
+	blocked, _ := h.store.FindBlockedUsers(r.Context())
+	selfBlocked := h.getSelfBlockedUsers()
+
 
 	// Вычисляем статус heartbeat
 	now := time.Now()
@@ -90,12 +94,16 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := struct {
-		Users  interface{}
-		Admins interface{}
+		data := struct {
+		Users   interface{}
+		Admins  interface{}
+		Blocked interface{}
+		SelfBlocked interface{}
 	}{
-		Users:  users,
-		Admins: admins,
+		Users:   users,
+		Admins:  admins,
+		Blocked: blocked,
+		SelfBlocked: selfBlocked,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -178,4 +186,34 @@ func (h *AdminHandler) checkAuth(r *http.Request) bool {
 		return false
 	}
 	return cookie.Value == h.password
+}
+
+//разбор логов в поисках самоблока
+func (h *AdminHandler) getSelfBlockedUsers() []string {
+	cmd := exec.Command("docker", "logs", "2mon", "--tail", "500")
+	output, _ := cmd.Output()
+	lines := strings.Split(string(output), "\n")
+
+	blockedMap := make(map[string]bool)
+	for _, line := range lines {
+		if strings.Contains(line, "max api returned 403") {
+			// Извлекаем chat_id из строки вида "chat_id=-74740811238662"
+			if idx := strings.Index(line, "chat_id="); idx != -1 {
+				chatID := line[idx+8:]
+				if end := strings.Index(chatID, "\""); end != -1 {
+					chatID = chatID[:end]
+				}
+				if end := strings.Index(chatID, " "); end != -1 {
+					chatID = chatID[:end]
+				}
+				blockedMap[chatID] = true
+			}
+		}
+	}
+
+	var result []string
+	for chatID := range blockedMap {
+		result = append(result, chatID)
+	}
+	return result
 }

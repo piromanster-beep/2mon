@@ -31,8 +31,8 @@ func New(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Scheduler {
 }
 
 func (s *Scheduler) Start(ctx context.Context) {
-	s.cron.AddFunc("0 9 * * 1-5", s.sendStatsToUsers)
-	s.cron.AddFunc("5 9 * * 1-5", s.sendStatsToAdmins)
+	s.cron.AddFunc("0 9 * * *", s.sendStatsToUsers)
+	s.cron.AddFunc("5 9 * * *", s.sendStatsToAdmins)
 	// Проверка heartbeat каждую минуту
 	s.cron.AddFunc("* * * * *", s.checkHeartbeats)
 	s.cron.Start()

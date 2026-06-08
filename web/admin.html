@@ -58,6 +58,40 @@
         {{end}}
     </table>
 
+    {{if .Blocked}}
+    <h2>Заблокированные</h2>
+    <table>
+        <tr>
+            <th>Chat ID</th>
+            <th>Токен</th>
+            <th>Лимит</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        {{range .Blocked}}
+        <tr>
+            <td>{{.ChatID}}</td>
+            <td><code>{{.Token}}</code></td>
+            <td>{{.DailyLimit}}</td>
+            <td>❌</td>
+            <td>
+                <a href="/admin/ban/{{.ChatID}}"><span class="unban">Разбанить</span></a>
+            </td>
+        </tr>
+        {{end}}
+    </table>
+    {{end}}
+
+    {{if .SelfBlocked}}
+    <h2>Заблокировали бота (403)</h2>
+    <table>
+        <tr><th>Chat ID</th></tr>
+        {{range .SelfBlocked}}
+        <tr><td>{{.}}</td></tr>
+        {{end}}
+    </table>
+    {{end}}
+
     <p><a href="/admin">Выйти</a></p>
 </body>
 </html><!-- Админка 2mon --> 

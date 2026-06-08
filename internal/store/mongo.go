@@ -196,6 +196,22 @@ func (s *Store) FindActiveUsers(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
+// FindBlockedUsers — найти всех заблокированных пользователей
+func (s *Store) FindBlockedUsers(ctx context.Context) ([]model.User, error) {
+	cursor, err := s.users.Find(ctx, bson.M{"is_active": false})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+
 // ============= ЛОГИ СООБЩЕНИЙ =============
 
 // LogMessage — записать сообщение в лог
