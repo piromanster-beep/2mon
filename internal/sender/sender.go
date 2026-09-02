@@ -39,8 +39,9 @@ func (s *Sender) Start(ctx context.Context) {
 					log.Printf("[sender] limiter wait: %v", err)
 					continue
 				}
+				log.Printf("[sender] to %s: %s", msg.ChatID, truncate(msg.Text, 50))
 				if err := s.sendToMax(ctx, msg); err != nil {
-					log.Printf("[sender] send error: %v", err)
+					log.Printf("[sender] send error to %s: %v", msg.ChatID, err)
 				}
 			case <-ctx.Done():
 				log.Println("[sender] draining queue...")
@@ -104,4 +105,11 @@ func (s *Sender) sendToMax(ctx context.Context, msg model.Message) error {
 	}
 
 	return nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }

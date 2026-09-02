@@ -11,6 +11,12 @@ services:
       - .env
     depends_on:
       - mongo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 
   mongo:
     image: mongo:7.0

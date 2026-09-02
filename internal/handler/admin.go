@@ -196,21 +196,18 @@ func (h *AdminHandler) getSelfBlockedUsers() []string {
 
 	blockedMap := make(map[string]bool)
 	for _, line := range lines {
-		if strings.Contains(line, "max api returned 403") {
-			// Извлекаем chat_id из строки вида "chat_id=-74740811238662"
-			if idx := strings.Index(line, "chat_id="); idx != -1 {
-				chatID := line[idx+8:]
-				if end := strings.Index(chatID, "\""); end != -1 {
-					chatID = chatID[:end]
+		if strings.Contains(line, "send error to") && strings.Contains(line, "max api returned 403") {
+			// Извлекаем chat_id из строки вида "send error to 351317206: max api returned 403"
+			parts := strings.Fields(line)
+			for i, p := range parts {
+				if p == "to" && i+1 < len(parts) {
+					chatID := strings.TrimSuffix(parts[i+1], ":")
+					blockedMap[chatID] = true
+					break
 				}
-				if end := strings.Index(chatID, " "); end != -1 {
-					chatID = chatID[:end]
-				}
-				blockedMap[chatID] = true
 			}
 		}
 	}
-
 	var result []string
 	for chatID := range blockedMap {
 		result = append(result, chatID)
