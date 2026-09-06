@@ -7,6 +7,18 @@
 
 1. WEBHOOK ДЛЯ АЛЕРТОВ
 
+### Быстрый способ: импорт готового Media type
+
+Скачайте файл deploy/zabbix-media-type-2mon.yaml и импортируйте его:
+
+Alerts → Media types → Import → выберите файл → Import
+
+После импорта появится Media type "2mon" с готовым скриптом и шаблонами.
+
+### Ручной способ
+Если импорт недоступен, настройте вручную:
+
+
 1.1. Media type
   Alerts -> Media types -> Create media type
   Type: Webhook
