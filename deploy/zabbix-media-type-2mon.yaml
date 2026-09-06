@@ -1,0 +1,55 @@
+zabbix_export:
+  version: '7.0'
+  media_types:
+    - name: '2mon'
+      type: WEBHOOK
+      parameters:
+        - name: URL
+          value: 'https://2mon.ru/wh/{ALERT.SENDTO}'
+        - name: Subject
+          value: '{ALERT.SUBJECT}'
+        - name: Message
+          value: '{ALERT.MESSAGE}'
+        - name: Severity
+          value: '{EVENT.SEVERITY}'
+      script: |
+        try {
+            var params = JSON.parse(value);
+            var body = JSON.stringify({
+                subject: params.Subject,
+                message: params.Message,
+                severity: params.Severity
+            });
+            var request = new HttpRequest();
+            request.addHeader('Content-Type: application/json');
+            var response = request.post(params.URL, body);
+            if (request.getStatus() !== 200) {
+                throw 'HTTP ' + request.getStatus() + ': ' + response;
+            }
+            return 'OK';
+        }
+        catch (err) {
+            throw err;
+        }
+      message_templates:
+        - event_source: TRIGGERS
+          operation_mode: PROBLEM
+          subject: 'Problem: {EVENT.NAME}'
+          message: |
+            Problem started at {EVENT.TIME} on {EVENT.DATE}
+            Problem name: {EVENT.NAME}
+            Host: {HOST.NAME}
+            Severity: {EVENT.SEVERITY}
+            Operational data: {EVENT.OPDATA}
+            Original problem ID: {EVENT.ID}
+        - event_source: TRIGGERS
+          operation_mode: RECOVERY
+          subject: 'Resolved in {EVENT.DURATION}: {EVENT.NAME}'
+          message: |
+            Problem has been resolved at {EVENT.RECOVERY.TIME} on {EVENT.RECOVERY.DATE}
+            Problem name: {EVENT.NAME}
+            Problem duration: {EVENT.DURATION}
+            Host: {HOST.NAME}
+            Severity: {EVENT.SEVERITY}
+            Original problem ID: {EVENT.ID}
+      description: 'Отправка уведомлений через 2mon (https://2mon.ru)'
