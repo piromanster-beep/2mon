@@ -9,7 +9,7 @@
 
 ### Быстрый способ: импорт готового Media type
 
-Скачайте файл deploy/zabbix-media-type-2mon.yaml и импортируйте его:
+Скачайте файл [zabbix-media-type-2mon.yaml](https://gitflic.ru/project/piroman99/2mon/blob/raw?file=deploy%2Fzabbix-media-type-2mon.yaml) и импортируйте его:
 
 Alerts → Media types → Import → выберите файл → Import
 
