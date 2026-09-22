@@ -197,7 +197,13 @@ func (h *BotHandler) handleStatus(r *http.Request, chatID string) string {
 	if user == nil {
 		return "Вы не зарегистрированы. Напишите /start"
 	}
-	return fmt.Sprintf("📊 Статистика за сегодня\n\nОтправлено: %d / %d\nОсталось: %d", user.MsgCountToday, user.DailyLimit, user.DailyLimit-user.MsgCountToday)
+	// Остаток не должен уходить в минус: лимит могли понизить после
+	// того, как счётчик уже перевалил за новое значение.
+	remaining := user.DailyLimit - user.MsgCountToday
+	if remaining < 0 {
+		remaining = 0
+	}
+	return fmt.Sprintf("📊 Статистика за сегодня\n\nОтправлено: %d / %d\nОсталось: %d", user.MsgCountToday, user.DailyLimit, remaining)
 }
 
 func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {

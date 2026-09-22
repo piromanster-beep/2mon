@@ -21,8 +21,8 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		MaxAPIURL: env("MAX_API_URL", "https://platform-api.max.ru"),
-		RateLimit: envInt("RATE_LIMIT", 30),
-		QueueSize: envInt("QUEUE_SIZE", 1000),
+		RateLimit: envPositiveInt("RATE_LIMIT", 30),
+		QueueSize: envPositiveInt("QUEUE_SIZE", 1000),
 		Port:      env("PORT", "8080"),
 	}
 
@@ -54,7 +54,7 @@ func env(key, defaultVal string) string {
 	return val
 }
 
-// envInt — число из окружения с значением по умолчанию
+// envInt — число из окружения с значением по умолчанию.
 func envInt(key string, defaultVal int) int {
 	val := os.Getenv(key)
 	if val == "" {
@@ -62,6 +62,18 @@ func envInt(key string, defaultVal int) int {
 	}
 	n, err := strconv.Atoi(val)
 	if err != nil {
+		return defaultVal
+	}
+	return n
+}
+
+// envPositiveInt — как envInt, но ноль и отрицательные значения
+// отбрасываются в пользу дефолта. Для RATE_LIMIT и QUEUE_SIZE это
+// важно: rate.Limiter с limit <= 0 навсегда блокирует отправку, а
+// канал нулевой ёмкости переполняется мгновенно.
+func envPositiveInt(key string, defaultVal int) int {
+	n := envInt(key, defaultVal)
+	if n <= 0 {
 		return defaultVal
 	}
 	return n
