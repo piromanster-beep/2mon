@@ -85,6 +85,7 @@ docker compose up -d
 | `MAX_API_URL` | Нет | `https://platform-api.max.ru` | URL API MAX |
 | `RATE_LIMIT` | Нет | `30` | Лимит сообщений в секунду |
 | `QUEUE_SIZE` | Нет | `1000` | Размер очереди сообщений |
+| `LOG_RETENTION_DAYS` | Нет | `180` | Срок хранения журнала отправок, дней; `0` или меньше — хранить вечно |
 | `PORT` | Нет | `8080` | Порт сервера |
 
 > MAX рекомендует домен `platform-api2.max.ru` вместо `platform-api.max.ru`.

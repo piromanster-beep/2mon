@@ -35,7 +35,7 @@ func main() {
 
 	// Подключаемся к MongoDB
 	ctx := context.Background()
-	st, err := store.New(ctx, cfg.MongoURI)
+	st, err := store.New(ctx, cfg.MongoURI, cfg.LogRetentionDays)
 	if err != nil {
 		log.Fatalf("mongo: %v", err)
 	}

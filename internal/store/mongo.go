@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"gitflic.ru/piroman99/2mon/internal/model"
@@ -21,8 +22,9 @@ type Store struct {
 	logs   *mongo.Collection
 }
 
-// New — подключение к MongoDB
-func New(ctx context.Context, uri string) (*Store, error) {
+// New — подключение к MongoDB.
+// logRetentionDays — сколько дней хранить messages_log (TTL); <= 0 — вечно.
+func New(ctx context.Context, uri string, logRetentionDays int) (*Store, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		return nil, fmt.Errorf("mongo connect: %w", err)
@@ -44,6 +46,13 @@ func New(ctx context.Context, uri string) (*Store, error) {
 	// Создаём индексы
 	if err := s.createIndexes(ctx); err != nil {
 		return nil, fmt.Errorf("create indexes: %w", err)
+	}
+
+	// Ретенция журнала — не критична для работы сервера, поэтому ошибку
+	// не валим, а только логируем: у MongoDB-пользователя может не быть
+	// прав на dropIndex, а без автоочистки сервис работает нормально.
+	if err := s.ensureLogsRetention(ctx, logRetentionDays); err != nil {
+		log.Printf("[store] retention: %v (автоочистка messages_log не настроена)", err)
 	}
 
 	return s, nil
@@ -68,15 +77,113 @@ func (s *Store) createIndexes(ctx context.Context) error {
 		return err
 	}
 
-	// Индекс на created_at для статистики
+	// Индекс под статистику конкретного пользователя за дату:
+	// фильтр по user_id + диапазон по created_at.
 	_, err = s.logs.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "created_at", Value: -1}},
+		Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}},
 	})
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// ensureLogsRetention — настраивает автоочистку messages_log.
+//
+// При logRetentionDays > 0 старые записи удаляет сама MongoDB через TTL-индекс
+// на created_at; при <= 0 держим обычный индекс и храним вечно. Старые индексы
+// на created_at удаляются перед созданием TTL: на одном поле MongoDB не даёт
+// держать индексы с разными опциями, а нужен только один — по нему идут
+// диапазонные запросы статистики (сортировок по logs в коде нет).
+func (s *Store) ensureLogsRetention(ctx context.Context, logRetentionDays int) error {
+	const ttlName = "created_at_ttl"
+
+	indexes, err := s.listIndexes(ctx, s.logs)
+	if err != nil {
+		return err
+	}
+
+	if logRetentionDays <= 0 {
+		// Автоочистка выключена: держим обычный индекс на created_at.
+		for _, idx := range indexes {
+			if idx.name == ttlName {
+				if _, err := s.logs.Indexes().DropOne(ctx, ttlName); err != nil {
+					return err
+				}
+			}
+		}
+		_, err := s.logs.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys:    bson.D{{Key: "created_at", Value: -1}},
+			Options: options.Index().SetName("created_at_-1"),
+		})
+		return err
+	}
+
+	ttl := int32(logRetentionDays) * 24 * 60 * 60
+
+	for _, idx := range indexes {
+		if !isCreatedAtOnly(idx.key) {
+			continue
+		}
+		if idx.name == ttlName && idx.ttlSecs != nil && *idx.ttlSecs == ttl {
+			return nil // уже настроено верно
+		}
+		if _, err := s.logs.Indexes().DropOne(ctx, idx.name); err != nil {
+			return err
+		}
+	}
+
+	_, err = s.logs.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "created_at", Value: 1}},
+		Options: options.Index().SetName(ttlName).SetExpireAfterSeconds(ttl),
+	})
+	return err
+}
+
+// indexInfo — описание существующего индекса (нужное для миграции).
+type indexInfo struct {
+	name    string
+	key     bson.D
+	ttlSecs *int32
+}
+
+// listIndexes — список индексов коллекции.
+func (s *Store) listIndexes(ctx context.Context, coll *mongo.Collection) ([]indexInfo, error) {
+	cursor, err := coll.Indexes().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []indexInfo
+	for cursor.Next(ctx) {
+		var doc bson.M
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		info := indexInfo{}
+		if name, ok := doc["name"].(string); ok {
+			info.name = name
+		}
+		if key, ok := doc["key"].(bson.D); ok {
+			info.key = key
+		}
+		switch v := doc["expireAfterSeconds"].(type) {
+		case int32:
+			info.ttlSecs = &v
+		case int64:
+			n := int32(v)
+			info.ttlSecs = &n
+		}
+		out = append(out, info)
+	}
+	return out, cursor.Err()
+}
+
+// isCreatedAtOnly — индекс ровно по одному полю created_at (любое направление).
+func isCreatedAtOnly(key bson.D) bool {
+	return len(key) == 1 && key[0].Key == "created_at"
 }
 
 // Close — закрытие соединения
@@ -287,6 +394,25 @@ func (s *Store) CountMessagesByDate(ctx context.Context, date string) (int, erro
 	}
 
 	count, err := s.logs.CountDocuments(ctx, filter)
+	return int(count), err
+}
+
+// CountMessagesByUserAndDate — сколько сообщений отправил конкретный
+// пользователь за дату.
+func (s *Store) CountMessagesByUserAndDate(ctx context.Context, userID, date string) (int, error) {
+	start, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return 0, fmt.Errorf("parse date %q: %w", date, err)
+	}
+	end := start.Add(24 * time.Hour)
+
+	count, err := s.logs.CountDocuments(ctx, bson.M{
+		"user_id": userID,
+		"created_at": bson.M{
+			"$gte": start,
+			"$lt":  end,
+		},
+	})
 	return int(count), err
 }
 

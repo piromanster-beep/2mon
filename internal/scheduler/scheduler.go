@@ -50,8 +50,14 @@ func (s *Scheduler) sendStatsToUsers() {
 	}
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	adText := "\n\n📢 Реклама\nВаш надёжный прокси для уведомлений — 2mon."
+	ctx := context.Background()
 	for _, user := range users {
-		count, _ := s.store.CountMessagesByDate(context.Background(), yesterday)
+		// Считаем сообщения именно этого пользователя. Раньше здесь
+		// стоял общий счётчик по всем — каждый видел чужой объём.
+		count, err := s.store.CountMessagesByUserAndDate(ctx, user.ID, yesterday)
+		if err != nil {
+			log.Printf("[scheduler] count messages for %s: %v", user.ID, err)
+		}
 		text := fmt.Sprintf("📊 Ваша статистика за %s\n\nОтправлено сообщений: %d\nДневной лимит: %d%s", yesterday, count, user.DailyLimit, adText)
 		s.sender.Enqueue(model.Message{ChatID: user.ChatID, Text: text})
 	}

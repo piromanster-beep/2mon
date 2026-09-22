@@ -10,6 +10,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("RATE_LIMIT", "")
 	t.Setenv("QUEUE_SIZE", "")
 	t.Setenv("PORT", "")
+	t.Setenv("LOG_RETENTION_DAYS", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -29,6 +30,37 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.Port != "8080" {
 		t.Errorf("Port = %q, want 8080", cfg.Port)
+	}
+	if cfg.LogRetentionDays != 180 {
+		t.Errorf("LogRetentionDays = %d, want 180", cfg.LogRetentionDays)
+	}
+}
+
+// Ноль и отрицательные значения LOG_RETENTION_DAYS — это осознанное
+// отключение автоочистки, а не мусор: подменять их дефолтом нельзя.
+func TestLoadLogRetentionAllowsDisable(t *testing.T) {
+	t.Setenv("MONGO_URI", "mongodb://localhost:27017")
+	t.Setenv("MAX_BOT_TOKEN", "token")
+	t.Setenv("ADMIN_PASSWORD", "pass")
+
+	for _, tc := range []struct {
+		raw  string
+		want int
+	}{
+		{"0", 0},
+		{"-1", -1},
+		{"30", 30},
+		{"abc", 180}, // мусор -> дефолт
+	} {
+		t.Setenv("LOG_RETENTION_DAYS", tc.raw)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load(LOG_RETENTION_DAYS=%q) error: %v", tc.raw, err)
+		}
+		if cfg.LogRetentionDays != tc.want {
+			t.Errorf("LOG_RETENTION_DAYS=%q: got %d, want %d", tc.raw, cfg.LogRetentionDays, tc.want)
+		}
 	}
 }
 

@@ -15,15 +15,20 @@ type Config struct {
 	RateLimit     int
 	QueueSize     int
 	Port          string
+	// LogRetentionDays — сколько дней хранить журнал отправок
+	// (messages_log). Mongo удаляет старые записи сама через TTL-индекс.
+	// Ноль или отрицательное значение отключает автоочистку.
+	LogRetentionDays int
 }
 
 // Load — загрузка из переменных окружения
 func Load() (*Config, error) {
 	cfg := &Config{
-		MaxAPIURL: env("MAX_API_URL", "https://platform-api.max.ru"),
-		RateLimit: envPositiveInt("RATE_LIMIT", 30),
-		QueueSize: envPositiveInt("QUEUE_SIZE", 1000),
-		Port:      env("PORT", "8080"),
+		MaxAPIURL:        env("MAX_API_URL", "https://platform-api.max.ru"),
+		RateLimit:        envPositiveInt("RATE_LIMIT", 30),
+		QueueSize:        envPositiveInt("QUEUE_SIZE", 1000),
+		Port:             env("PORT", "8080"),
+		LogRetentionDays: envInt("LOG_RETENTION_DAYS", 180),
 	}
 
 	// Обязательные поля
