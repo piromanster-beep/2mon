@@ -12,3 +12,4 @@
 tmp/
 *.tar.gz
 backups/
+server
