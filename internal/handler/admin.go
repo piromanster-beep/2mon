@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"gitflic.ru/piroman99/2mon/internal/store"
 	"html/template"
@@ -10,11 +13,18 @@ import (
 	"time"
 )
 
+// sessionCookieName — имя куки административной сессии.
+const sessionCookieName = "admin_session"
+
+// sessionCookieMaxAge — сколько живёт сессия админки (12 часов).
+const sessionCookieMaxAge = 12 * 60 * 60
+
 // AdminHandler — обработчик админки
 type AdminHandler struct {
-	store    *store.Store
-	password string
-	tmpl     *template.Template
+	store        *store.Store
+	password     string
+	sessionToken string
+	tmpl         *template.Template
 }
 
 // NewAdminHandler — создать обработчик админки
@@ -23,8 +33,17 @@ func NewAdminHandler(s *store.Store, password string) *AdminHandler {
 	return &AdminHandler{
 		store:    s,
 		password: password,
-		tmpl:     tmpl,
+		// В куке лежит не сам пароль, а производное от него значение:
+		// утечка куки (XSS, логи, история) не раскрывает пароль.
+		sessionToken: sessionToken(password),
+		tmpl:         tmpl,
 	}
+}
+
+// sessionToken — детерминированный токен сессии из пароля.
+func sessionToken(password string) string {
+	sum := sha256.Sum256([]byte("2mon-admin-session:" + password))
+	return hex.EncodeToString(sum[:])
 }
 
 // LoginPage — страница входа
@@ -48,15 +67,21 @@ func (h *AdminHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
-	if password != h.password {
+	// Сравнение постоянного времени: утечки длины/префикса по таймингу.
+	if subtle.ConstantTimeCompare([]byte(password), []byte(h.password)) != 1 {
+		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Неверный пароль. <a href='/admin'>Назад</a>"))
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:  "admin_session",
-		Value: h.password,
-		Path:  "/",
+		Name:     sessionCookieName,
+		Value:    h.sessionToken,
+		Path:     "/admin",
+		MaxAge:   sessionCookieMaxAge,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	http.Redirect(w, r, "/admin/dashboard", http.StatusFound)
@@ -183,9 +208,9 @@ func (h *AdminHandler) SetLimit(w http.ResponseWriter, r *http.Request) {
 
 // checkAuth — проверить куку сессии
 func (h *AdminHandler) checkAuth(r *http.Request) bool {
-	cookie, err := r.Cookie("admin_session")
+	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
 		return false
 	}
-	return cookie.Value == h.password
+	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(h.sessionToken)) == 1
 }
