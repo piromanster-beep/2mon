@@ -147,7 +147,10 @@ docker compose up -d
 | `/status` | Статистика за сегодня |
 | `/heartbeat` | Статус heartbeat |
 | `/bind` | Привязать группу (`/bind ID`, отвязка — `/bind off`) |
+| `/groupid` | Показать ID группы (в группе) |
 | `/help` | Справка |
+
+Команды автоматически регистрируются в подсказках MAX при вводе «/» (`PATCH /me/commands`).
 
 ## Работа в группах MAX
 
@@ -164,9 +167,22 @@ docker compose up -d
 В группе бот отвечает на команды:
 - `/status` — статистика за сегодня
 - `/heartbeat` — статус heartbeat
+- `/groupid` — ID группы
 - `/help` — справка
 
 Токен в группе не показывается. На обычные сообщения бот не реагирует.
+
+## Разработка и тестирование
+
+```bash
+make check                    # gofmt + go vet + go test — то же, что гоняет CI
+make test                     # только тесты
+go test -race -count=1 ./...  # с детектором гонок (нужен cgo)
+```
+
+Тесты лежат рядом с кодом: `internal/config/config_test.go`, `internal/sender/sender_test.go`, `cmd/server/main_test.go`.
+
+CI (`gitflic-ci.yaml`) запускается на каждый push и merge request: gofmt, go vet, `go test -race`, а на ветке `main` — ещё и сборка. Так сломанный код не попадает в `main`.
 
 ## Документация
 
