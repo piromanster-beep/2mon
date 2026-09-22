@@ -115,3 +115,95 @@ func TestConcurrentEnqueueDuringShutdown(t *testing.T) {
 	wg.Wait()
 	waitClosed(t, s)
 }
+
+// waitHits ждёт, пока счётчик обращений достигнет want, иначе падает.
+func waitHits(t *testing.T, hits *int32, mu *sync.Mutex, want int32) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		n := *hits
+		mu.Unlock()
+		if n >= want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	mu.Lock()
+	got := *hits
+	mu.Unlock()
+	t.Fatalf("hits = %d, want >= %d", got, want)
+}
+
+// Временные ошибки (429, 5xx) должны повторяться до успеха.
+func TestRetriesOnTemporaryError(t *testing.T) {
+	for _, code := range []int{http.StatusTooManyRequests, http.StatusBadGateway} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			var mu sync.Mutex
+			var hits int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				hits++
+				n := hits
+				mu.Unlock()
+				if n == 1 {
+					w.WriteHeader(code)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(srv.Close)
+
+			s := New("token", srv.URL, 100, 10)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s.Start(ctx)
+
+			_ = s.Enqueue(model.Message{ChatID: "1", Text: "hi"})
+			waitHits(t, &hits, &mu, 2)
+		})
+	}
+}
+
+// Окончательные ошибки (4xx, кроме 429) не повторяются, чтобы не
+// задваивать уведомления.
+func TestNoRetryOnPermanentError(t *testing.T) {
+	var mu sync.Mutex
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits++
+		mu.Unlock()
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := New("token", srv.URL, 1000, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+
+	_ = s.Enqueue(model.Message{ChatID: "1", Text: "hi"})
+	// Даём запас на несколько возможных попыток, затем проверяем, что
+	// была ровно одна.
+	time.Sleep(300 * time.Millisecond)
+	mu.Lock()
+	got := hits
+	mu.Unlock()
+	if got != 1 {
+		t.Fatalf("hits = %d, want 1 (no retry on 403)", got)
+	}
+}
+
+// retryDelay уважает Retry-After и иначе растёт с номером попытки.
+func TestRetryDelay(t *testing.T) {
+	withHeader := &http.Response{Header: http.Header{"Retry-After": []string{"7"}}}
+	if got := retryDelay(withHeader, 1); got != 7*time.Second {
+		t.Errorf("retryDelay with Retry-After = %s, want 7s", got)
+	}
+
+	none := &http.Response{Header: http.Header{}}
+	if got := retryDelay(none, 2); got != 2*defaultRetryDelay {
+		t.Errorf("retryDelay without header = %s, want %s", got, 2*defaultRetryDelay)
+	}
+}

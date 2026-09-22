@@ -5,14 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"gitflic.ru/piroman99/2mon/internal/model"
 
 	"golang.org/x/time/rate"
+)
+
+const (
+	// sendTimeout — потолок на один HTTP-запрос к MAX.
+	sendTimeout = 10 * time.Second
+	// maxAttempts — сколько раз пробуем доставить при временных ошибках
+	// (429 и 5xx). Не-временные ответы (403 и прочие 4xx) не повторяем,
+	// чтобы не спамить пользователя дублями.
+	maxAttempts = 3
+	// defaultRetryDelay — пауза перед повтором, если MAX не прислал
+	// Retry-After; растёт с номером попытки.
+	defaultRetryDelay = time.Second
 )
 
 // ErrorReporter сообщает результат попытки отправки в MAX.
@@ -27,6 +42,7 @@ type Sender struct {
 	queue    chan model.Message
 	closed   atomic.Bool
 	reporter ErrorReporter
+	client   *http.Client
 }
 
 func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
@@ -35,6 +51,16 @@ func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
 		apiURL:   apiURL,
 		limiter:  rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
 		queue:    make(chan model.Message, queueSize),
+		// Один клиент на весь sender: соединения переиспользуются
+		// (keep-alive), а не пересоздаются на каждое сообщение.
+		client: &http.Client{
+			Timeout: sendTimeout,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -107,7 +133,35 @@ func (s *Sender) QueueLen() int {
 	return len(s.queue)
 }
 
+// sendToMax отправляет сообщение, повторяя попытку при временных ошибках
+// MAX (429 Too Many Requests и 5xx). Остальные ответы — окончательный
+// результат: их возвращаем сразу, чтобы не задваивать уведомления.
 func (s *Sender) sendToMax(ctx context.Context, msg model.Message) error {
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		retry, err := s.postMessage(ctx, msg)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+
+		// Повторяем только временные ошибки и только если контекст жив.
+		if retry <= 0 || attempt == maxAttempts || ctx.Err() != nil {
+			break
+		}
+		log.Printf("[sender] retry %d/%d to %s in %s: %v", attempt, maxAttempts, msg.ChatID, retry, err)
+		select {
+		case <-ctx.Done():
+			return lastErr
+		case <-time.After(retry):
+		}
+	}
+	return lastErr
+}
+
+// postMessage — одна попытка отправки. Если ответ временный (429/5xx),
+// возвращает паузу перед повтором, иначе 0.
+func (s *Sender) postMessage(ctx context.Context, msg model.Message) (time.Duration, error) {
 	url := fmt.Sprintf("%s/messages?chat_id=%s", s.apiURL, msg.ChatID)
 
 	body := map[string]string{
@@ -116,28 +170,49 @@ func (s *Sender) sendToMax(ctx context.Context, msg model.Message) error {
 
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
-		return fmt.Errorf("marshal: %w", err)
+		return 0, fmt.Errorf("marshal: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return fmt.Errorf("new request: %w", err)
+		return 0, fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("Authorization", s.botToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("http: %w", err)
+		// Неизвестно, дошло ли сообщение: повторять рискованно
+		// (возможен дубль), поэтому считаем ошибку окончательной.
+		return 0, fmt.Errorf("http: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("max api returned %d", resp.StatusCode)
-	}
+	// Вычитываем тело: без этого соединение не вернётся в пул keep-alive.
+	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	_, _ = io.Copy(io.Discard, resp.Body)
 
-	return nil
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		return 0, nil
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return retryDelay(resp, 1), fmt.Errorf("max api returned %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	case resp.StatusCode >= 500:
+		return retryDelay(resp, 2), fmt.Errorf("max api returned %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	default:
+		return 0, fmt.Errorf("max api returned %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
+}
+
+// retryDelay берёт паузу из Retry-After (в секундах), иначе —
+// defaultRetryDelay, умноженный на номер попытки.
+func retryDelay(resp *http.Response, attempt int) time.Duration {
+	if v := strings.TrimSpace(resp.Header.Get("Retry-After")); v != "" {
+		if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
+			return time.Duration(secs) * time.Second
+		}
+	}
+	return time.Duration(attempt) * defaultRetryDelay
 }
 
 func truncate(s string, n int) string {
