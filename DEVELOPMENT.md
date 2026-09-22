@@ -9,7 +9,7 @@
   - Домен с HTTPS (можно localhost для разработки)
 
 Локальный запуск:
-  git clone https://gitflic.ru/piroman99/2mon.git
+  git clone https://gitflic.ru/project/piroman99/2mon.git
   cd 2mon
   cp .env.example .env
   # заполнить .env
@@ -20,6 +20,19 @@
   В .env указать MONGO_URI=mongodb://localhost:27017
   go mod tidy
   go run ./cmd/server/
+
+ТЕСТЫ И ПРОВЕРКИ
+
+  make check    — gofmt + go vet + go test (то же, что гоняет CI)
+  make test     — только тесты: go test ./...
+  go test -race -count=1 ./...   — с детектором гонок
+
+Тесты лежат рядом с кодом:
+  internal/config/config_test.go    — дефолты конфига
+  internal/sender/sender_test.go    — очередь, доставка, graceful shutdown
+  cmd/server/main_test.go           — регистрация команд бота в MAX
+
+CI: gitflic-ci.yaml (gofmt, go vet, go test -race, сборка на ветке main).
 
 
 СТРУКТУРА ПРОЕКТА

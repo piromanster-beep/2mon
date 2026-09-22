@@ -3,15 +3,15 @@ package model
 import "time"
 
 type User struct {
-	ID            string    `bson:"_id,omitempty" json:"id"`
-	ChatID        string    `bson:"chat_id" json:"chat_id"`
-	Token         string    `bson:"token" json:"token"`
-	IsActive      bool      `bson:"is_active" json:"is_active"`
-	IsAdmin       bool      `bson:"is_admin" json:"is_admin"`
-	DailyLimit    int       `bson:"daily_limit" json:"daily_limit"`
-	MsgCountToday int       `bson:"msg_count_today" json:"msg_count_today"`
-	MsgDate       string    `bson:"msg_date" json:"msg_date"`
-	CreatedAt     time.Time `bson:"created_at" json:"created_at"`
+	ID                 string    `bson:"_id,omitempty" json:"id"`
+	ChatID             string    `bson:"chat_id" json:"chat_id"`
+	Token              string    `bson:"token" json:"token"`
+	IsActive           bool      `bson:"is_active" json:"is_active"`
+	IsAdmin            bool      `bson:"is_admin" json:"is_admin"`
+	DailyLimit         int       `bson:"daily_limit" json:"daily_limit"`
+	MsgCountToday      int       `bson:"msg_count_today" json:"msg_count_today"`
+	MsgDate            string    `bson:"msg_date" json:"msg_date"`
+	CreatedAt          time.Time `bson:"created_at" json:"created_at"`
 	LastHeartbeat      time.Time `bson:"last_heartbeat" json:"last_heartbeat"`
 	HeartbeatInterval  int       `bson:"heartbeat_interval" json:"heartbeat_interval"`
 	HeartbeatAlertSent bool      `bson:"heartbeat_alert_sent" json:"heartbeat_alert_sent"`

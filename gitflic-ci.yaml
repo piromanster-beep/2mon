@@ -1,0 +1,35 @@
+# GitFlic CI/CD. Конфиг — gitflic-ci.yaml в корне репозитория.
+# Запускается автоматически на push и merge request.
+image: golang:1.22
+
+variables:
+  GOFLAGS: "-mod=mod"
+  CGO_ENABLED: "1"
+
+stages:
+  - test
+  - build
+
+# Проверка форматирования: код должен быть gofmt-чистым.
+gofmt:
+  stage: test
+  script:
+    - files=$(gofmt -l .) && test -z "$files" || { echo "Не отформатировано gofmt:"; echo "$files"; exit 1; }
+
+vet:
+  stage: test
+  script:
+    - go vet ./...
+
+# -race важен для sender: там конкурентная очередь и shutdown.
+test:
+  stage: test
+  script:
+    - go test -race -count=1 ./...
+
+build:
+  stage: build
+  script:
+    - go build ./...
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

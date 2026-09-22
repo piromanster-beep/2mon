@@ -58,8 +58,8 @@ func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-//debug	log.Printf("[webhook] payload: subject=%s, message=%s, severity=%s", 
-//debug	payload.Subject, payload.Message, payload.Severity) 
+	//debug	log.Printf("[webhook] payload: subject=%s, message=%s, severity=%s",
+	//debug	payload.Subject, payload.Message, payload.Severity)
 
 	// Heartbeat — не считаем в лимит, просто обновляем время
 	if strings.ToLower(payload.Subject) == "heartbeat" {

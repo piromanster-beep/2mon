@@ -3,15 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"gitflic.ru/piroman99/2mon/internal/model"
+	"gitflic.ru/piroman99/2mon/internal/notifier"
+	"gitflic.ru/piroman99/2mon/internal/sender"
+	"gitflic.ru/piroman99/2mon/internal/store"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
-	"gitflic.ru/piroman99/2mon/internal/model"
-	"gitflic.ru/piroman99/2mon/internal/notifier"
-	"gitflic.ru/piroman99/2mon/internal/sender"
-	"gitflic.ru/piroman99/2mon/internal/store"
 
 	"github.com/google/uuid"
 )
@@ -28,12 +28,12 @@ func NewBotHandler(s *store.Store, snd *sender.Sender, n *notifier.Notifier) *Bo
 
 func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
-//debug log.Printf("[bot] raw update: %s", string(body))
+	//debug log.Printf("[bot] raw update: %s", string(body))
 
 	// Структура MAX: message.recipient.chat_id, message.body.text
 	var update struct {
-	UpdateType string `json:"update_type"`
-		Message struct {
+		UpdateType string `json:"update_type"`
+		Message    struct {
 			Recipient struct {
 				ChatID   int64  `json:"chat_id"`
 				ChatType string `json:"chat_type"`
@@ -57,7 +57,7 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var chatID string
 	var text string
-//debug log.Printf("[bot] update_type=%s", update.UpdateType)
+	//debug log.Printf("[bot] update_type=%s", update.UpdateType)
 
 	if update.UpdateType == "bot_added" {
 		w.WriteHeader(http.StatusOK)
@@ -77,7 +77,7 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		text = strings.TrimSpace(update.Message.Body.Text)
 	}
 
-//debug	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
+	//debug	log.Printf("[bot] chat_id=%s, text=%s", chatID, text)
 
 	var response string
 	// Если сообщение начинается с @ — ищем команду после первого пробела
@@ -103,14 +103,21 @@ func (h *BotHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	case text == "/status":
 		response = h.handleStatus(r, chatID)
 	case text == "/help":
-		response = "Доступные команды:\n\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/bind — привязать группу\n/help — справка"
+		response = "Доступные команды:\n\n/status — статистика за сегодня\n/heartbeat — статус heartbeat\n/token — показать токен\n/newtoken — сменить токен\n/bind — привязать группу\n/groupid — ID группы\n/help — справка"
 	case text == "/heartbeat":
 		response = h.handleHeartbeat(r, chatID)
+	case strings.HasPrefix(text, "/newtoken"):
+		// Смена токена — только в личке
+		if strings.HasPrefix(chatID, "-") {
+			response = "Сменить токен можно только в личных сообщениях. Напишите боту в личку."
+		} else {
+			response = h.handleNewToken(r, chatID, text)
+		}
 	case strings.HasPrefix(text, "/bind"):
 		if strings.HasPrefix(chatID, "-") {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		response = h.handleBind(r, chatID, text)
 	case text == "/groupid":
 		response = fmt.Sprintf("ID этой группы: %s", chatID)
@@ -144,7 +151,7 @@ func (h *BotHandler) handleStart(r *http.Request, chatID string) string {
 	}
 	h.store.CreateUser(r.Context(), user)
 	h.notifier.NotifyAdmins(fmt.Sprintf("🆕 Новый пользователь\nChat ID: %s", chatID))
-	return fmt.Sprintf("Привет! Вы зарегистрированы.\n\nВаш токен: %s\n\nИспользуйте его для настройки вебхука в Zabbix:\nhttps://2mon.ru/wh/%s\n\nКоманды:\n/status — статистика\n/token — показать токен\n/help — справка", token, token)
+	return fmt.Sprintf("Привет! Вы зарегистрированы.\n\nВаш токен: %s\n\nИспользуйте его для настройки вебхука в Zabbix:\nhttps://2mon.ru/wh/%s\n\nКоманды:\n/status — статистика\n/token — показать токен\n/newtoken — сменить токен\n/help — справка", token, token)
 }
 
 func (h *BotHandler) handleToken(r *http.Request, chatID string) string {
@@ -153,6 +160,36 @@ func (h *BotHandler) handleToken(r *http.Request, chatID string) string {
 		return "Вы не зарегистрированы. Напишите /start"
 	}
 	return fmt.Sprintf("Ваш токен: %s", user.Token)
+}
+
+// handleNewToken меняет (ротирует) токен пользователя.
+// Без слова confirm — только предупреждение, токен не трогаем.
+func (h *BotHandler) handleNewToken(r *http.Request, chatID, text string) string {
+	user, _ := h.store.FindByChatID(r.Context(), chatID)
+	if user == nil {
+		return "Вы не зарегистрированы. Напишите /start"
+	}
+
+	parts := strings.Fields(text)
+	if len(parts) < 2 || parts[1] != "confirm" {
+		return "⚠️ Смена токена отключит текущий вебхук.\n" +
+			"Zabbix перестанет слать уведомления, пока вы не подставите новый токен в настройках медиа-типа.\n\n" +
+			"Чтобы продолжить, отправьте:\n/newtoken confirm"
+	}
+
+	user.Token = uuid.New().String()
+	if err := h.store.UpdateUser(r.Context(), user); err != nil {
+		log.Printf("[bot] newtoken update %s: %v", chatID, err)
+		return "Не удалось сменить токен, попробуйте позже."
+	}
+
+	h.notifier.NotifyAdmins(fmt.Sprintf("🔑 Пользователь %s сменил токен", chatID))
+
+	return fmt.Sprintf("✅ Токен обновлён. Старый токен больше не работает.\n\n"+
+		"Новый токен: %s\n\n"+
+		"URL для Zabbix:\nhttps://2mon.ru/wh/%s\n\n"+
+		"Не забудьте обновить токен в медиа-типе Zabbix, иначе уведомления не будут приходить.",
+		user.Token, user.Token)
 }
 
 func (h *BotHandler) handleStatus(r *http.Request, chatID string) string {
@@ -173,8 +210,8 @@ func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {
 		return "❤️ Heartbeat ещё не настроен.\n\nДобавьте в Zabbix Action, который шлёт вебхук с subject=heartbeat на ваш URL.\nИнтервал: раз в 5 минут."
 	}
 
-//	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
-//	return fmt.Sprintf("❤️ Heartbeat: OK\nПоследний сигнал: %s назад", ago)
+	//	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
+	//	return fmt.Sprintf("❤️ Heartbeat: OK\nПоследний сигнал: %s назад", ago)
 
 	ago := time.Since(user.LastHeartbeat).Round(time.Minute)
 	timeout := time.Duration(user.HeartbeatInterval+10) * time.Minute
@@ -187,7 +224,6 @@ func (h *BotHandler) handleHeartbeat(r *http.Request, chatID string) string {
 	}
 
 	return fmt.Sprintf("🟢 Heartbeat: OK\nПоследний сигнал: %s назад", ago)
-//
 }
 func (h *BotHandler) handleBind(r *http.Request, chatID string, text string) string {
 	user, _ := h.store.FindByChatID(r.Context(), chatID)
@@ -209,25 +245,30 @@ func (h *BotHandler) handleBind(r *http.Request, chatID string, text string) str
 
 	// Отвязка
 	if arg == "off" {
+		if user.GroupChatID == "" {
+			return "Бот и так не привязан к группе."
+		}
 		user.GroupChatID = ""
-		h.store.UpdateUser(r.Context(), user)
-	groupUser, _ := h.store.FindByChatID(r.Context(), arg)
-	groupToken := user.Token
-	if groupUser != nil {
-		groupToken = groupUser.Token
-	}
-	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.\n\nТокен для настройки Zabbix: %s", arg, groupToken)
+		if err := h.store.UpdateUser(r.Context(), user); err != nil {
+			log.Printf("[bot] unbind %s: %v", chatID, err)
+			return "Не удалось отвязать группу, попробуйте позже."
+		}
 		return "Бот отвязан от группы. Уведомления снова пойдут в личные сообщения."
 	}
 
 	// Привязка
 	user.GroupChatID = arg
-	h.store.UpdateUser(r.Context(), user)
-	groupUser, _ := h.store.FindByChatID(r.Context(), arg)
+	if err := h.store.UpdateUser(r.Context(), user); err != nil {
+		log.Printf("[bot] bind %s -> %s: %v", chatID, arg, err)
+		return "Не удалось привязать группу, попробуйте позже."
+	}
+
+	// Если группа уже зарегистрирована (/start в группе), показываем её токен,
+	// иначе — личный токен пользователя.
 	groupToken := user.Token
-	if groupUser != nil {
+	if groupUser, _ := h.store.FindByChatID(r.Context(), arg); groupUser != nil {
 		groupToken = groupUser.Token
 	}
+
 	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.\n\nТокен для настройки Zabbix: %s", arg, groupToken)
-	return fmt.Sprintf("Бот привязан к группе %s. Уведомления будут приходить туда.", arg)
 }

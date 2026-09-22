@@ -211,7 +211,6 @@ func (s *Store) FindBlockedUsers(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
-
 // ============= ЛОГИ СООБЩЕНИЙ =============
 
 // LogMessage — записать сообщение в лог

@@ -20,7 +20,7 @@ type Config struct {
 // Load — загрузка из переменных окружения
 func Load() (*Config, error) {
 	cfg := &Config{
-		MaxAPIURL: env("MAX_API_URL", "https://api.max.ru"),
+		MaxAPIURL: env("MAX_API_URL", "https://platform-api.max.ru"),
 		RateLimit: envInt("RATE_LIMIT", 30),
 		QueueSize: envInt("QUEUE_SIZE", 1000),
 		Port:      env("PORT", "8080"),

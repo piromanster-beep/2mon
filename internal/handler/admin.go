@@ -2,13 +2,13 @@ package handler
 
 import (
 	"fmt"
+	"gitflic.ru/piroman99/2mon/internal/store"
 	"html/template"
 	"log"
 	"net/http"
 	"os/exec"
 	"strings"
 	"time"
-	"gitflic.ru/piroman99/2mon/internal/store"
 )
 
 // AdminHandler — обработчик админки
@@ -81,7 +81,6 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	blocked, _ := h.store.FindBlockedUsers(r.Context())
 	selfBlocked := h.getSelfBlockedUsers()
 
-
 	// Вычисляем статус heartbeat
 	now := time.Now()
 	for i := range users {
@@ -94,15 +93,15 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-		data := struct {
-		Users   interface{}
-		Admins  interface{}
-		Blocked interface{}
+	data := struct {
+		Users       interface{}
+		Admins      interface{}
+		Blocked     interface{}
 		SelfBlocked interface{}
 	}{
-		Users:   users,
-		Admins:  admins,
-		Blocked: blocked,
+		Users:       users,
+		Admins:      admins,
+		Blocked:     blocked,
 		SelfBlocked: selfBlocked,
 	}
 
@@ -188,7 +187,7 @@ func (h *AdminHandler) checkAuth(r *http.Request) bool {
 	return cookie.Value == h.password
 }
 
-//разбор логов в поисках самоблока
+// разбор логов в поисках самоблока
 func (h *AdminHandler) getSelfBlockedUsers() []string {
 	cmd := exec.Command("docker", "logs", "2mon", "--tail", "500")
 	output, _ := cmd.Output()

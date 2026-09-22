@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"gitflic.ru/piroman99/2mon/internal/model"
@@ -19,6 +20,7 @@ type Sender struct {
 	apiURL   string
 	limiter  *rate.Limiter
 	queue    chan model.Message
+	closed   atomic.Bool
 }
 
 func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
@@ -30,21 +32,20 @@ func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
 	}
 }
 
+// Start запускает обработчик очереди. При отмене ctx очередь
+// дорабатывается (drain), после чего новые сообщения не принимаются.
 func (s *Sender) Start(ctx context.Context) {
 	go func() {
 		for {
 			select {
 			case msg := <-s.queue:
-				if err := s.limiter.Wait(ctx); err != nil {
-					log.Printf("[sender] limiter wait: %v", err)
-					continue
-				}
-				log.Printf("[sender] to %s: %s", msg.ChatID, truncate(msg.Text, 50))
-				if err := s.sendToMax(ctx, msg); err != nil {
-					log.Printf("[sender] send error to %s: %v", msg.ChatID, err)
-				}
+				s.dispatch(ctx, msg)
 			case <-ctx.Done():
 				log.Println("[sender] draining queue...")
+				// Запрещаем Enqueue дорабатывать очередь после старта
+				// завершения, но канал НЕ закрываем: его могут писать
+				// конкурентные HTTP-обработчики.
+				s.closed.Store(true)
 				s.drainQueue()
 				return
 			}
@@ -52,16 +53,32 @@ func (s *Sender) Start(ctx context.Context) {
 	}()
 }
 
+func (s *Sender) dispatch(ctx context.Context, msg model.Message) {
+	if err := s.limiter.Wait(ctx); err != nil {
+		// Отменённый контекст не должен ронять доставку — логируем и шлём.
+		log.Printf("[sender] limiter wait: %v", err)
+	}
+	log.Printf("[sender] to %s: %s", msg.ChatID, truncate(msg.Text, 50))
+	if err := s.sendToMax(ctx, msg); err != nil {
+		log.Printf("[sender] send error to %s: %v", msg.ChatID, err)
+	}
+}
+
 func (s *Sender) drainQueue() {
-	close(s.queue)
-	for msg := range s.queue {
-		if err := s.sendToMax(context.Background(), msg); err != nil {
-			log.Printf("[sender] drain error: %v", err)
+	for {
+		select {
+		case msg := <-s.queue:
+			s.dispatch(context.Background(), msg)
+		default:
+			return
 		}
 	}
 }
 
 func (s *Sender) Enqueue(msg model.Message) error {
+	if s.closed.Load() {
+		return fmt.Errorf("sender остановлен")
+	}
 	select {
 	case s.queue <- msg:
 		return nil
