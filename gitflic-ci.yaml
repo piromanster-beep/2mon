@@ -5,6 +5,20 @@ image: golang:1.22
 variables:
   GOFLAGS: "-mod=mod"
   CGO_ENABLED: "1"
+  # Держим GOPATH/GOCACHE внутри рабочей директории задачи: GitFlic умеет
+  # кэшировать только файлы внутри неё (по умолчанию GOPATH=/go, он вне).
+  GOPATH: "$CI_PROJECT_DIR/.gopath"
+  GOCACHE: "$CI_PROJECT_DIR/.gocache"
+
+# Общий кэш конвейера: скачанные модули и результаты сборки переиспользуются
+# между запусками (cache — глобальное ключевое слово, действует для всех задач).
+cache:
+  key:
+    - go
+    - modules
+  paths:
+    - .gopath/pkg/mod
+    - .gocache
 
 stages:
   - test

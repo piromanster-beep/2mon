@@ -8,8 +8,12 @@
 # Логи
 *.log
 
+# Кэш Go (используется локально и в CI)
+.gopath/
+.gocache/
+
 # Временные файлы
 tmp/
 *.tar.gz
 backups/
-server
+/server

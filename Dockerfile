@@ -15,4 +15,10 @@ COPY --from=builder /2mon /2mon
 COPY web/ /web/
 
 EXPOSE 8080
+
+# Проверка живости: Docker сам рестартует контейнер, если /healthz перестал
+# отвечать (compose — depends_on: condition: service_healthy).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8080}/healthz" || exit 1
+
 CMD ["/2mon"]
