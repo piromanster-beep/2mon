@@ -211,6 +211,60 @@ func (s *Store) FindBlockedUsers(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
+// ============= СТАТУС ДОСТАВКИ =============
+
+// SetSendError — запомнить причину неудачной отправки в MAX для чата.
+// chatID — это target chat (личка или группа), поэтому ищем и по chat_id,
+// и по group_chat_id: админке нужно видеть проблему независимо от того,
+// куда настроена доставка.
+func (s *Store) SetSendError(ctx context.Context, chatID, reason string) error {
+	_, err := s.users.UpdateMany(
+		ctx,
+		bson.M{"$or": bson.A{
+			bson.M{"chat_id": chatID},
+			bson.M{"group_chat_id": chatID},
+		}},
+		bson.M{"$set": bson.M{
+			"last_send_error":    reason,
+			"last_send_error_at": time.Now(),
+		}},
+	)
+	return err
+}
+
+// ClearSendError — сбросить статус ошибки после успешной доставки.
+func (s *Store) ClearSendError(ctx context.Context, chatID string) error {
+	_, err := s.users.UpdateMany(
+		ctx,
+		bson.M{"$or": bson.A{
+			bson.M{"chat_id": chatID},
+			bson.M{"group_chat_id": chatID},
+		}},
+		bson.M{"$unset": bson.M{
+			"last_send_error":    "",
+			"last_send_error_at": "",
+		}},
+	)
+	return err
+}
+
+// FindSendErrorUsers — пользователи с последней неудачной отправкой.
+func (s *Store) FindSendErrorUsers(ctx context.Context) ([]model.User, error) {
+	cursor, err := s.users.Find(ctx, bson.M{
+		"last_send_error": bson.M{"$exists": true, "$ne": ""},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // ============= ЛОГИ СООБЩЕНИЙ =============
 
 // LogMessage — записать сообщение в лог

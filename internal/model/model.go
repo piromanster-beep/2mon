@@ -17,6 +17,12 @@ type User struct {
 	HeartbeatAlertSent bool      `bson:"heartbeat_alert_sent" json:"heartbeat_alert_sent"`
 	HeartbeatOK        bool      `bson:"-" json:"heartbeat_ok"`
 	GroupChatID        string    `bson:"group_chat_id,omitempty" json:"group_chat_id,omitempty"`
+
+	// LastSendError — причина последней неудачной отправки в MAX
+	// (например, бот заблокирован пользователем: 403). Сбрасывается при
+	// первой успешной доставке.
+	LastSendError   string    `bson:"last_send_error,omitempty" json:"last_send_error,omitempty"`
+	LastSendErrorAt time.Time `bson:"last_send_error_at,omitempty" json:"last_send_error_at,omitempty"`
 }
 
 type MessageLog struct {

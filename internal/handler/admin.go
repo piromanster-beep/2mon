@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -79,7 +78,11 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	// Отдельно ищем админов (могут быть неактивны)
 	admins, _ := h.store.FindAdmins(r.Context())
 	blocked, _ := h.store.FindBlockedUsers(r.Context())
-	selfBlocked := h.getSelfBlockedUsers()
+	sendErrors, sendErrErr := h.store.FindSendErrorUsers(r.Context())
+	if sendErrErr != nil {
+		log.Printf("[admin] find send errors: %v", sendErrErr)
+		sendErrors = nil
+	}
 
 	// Вычисляем статус heartbeat
 	now := time.Now()
@@ -102,7 +105,7 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		Users:       users,
 		Admins:      admins,
 		Blocked:     blocked,
-		SelfBlocked: selfBlocked,
+		SelfBlocked: sendErrors,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -185,31 +188,4 @@ func (h *AdminHandler) checkAuth(r *http.Request) bool {
 		return false
 	}
 	return cookie.Value == h.password
-}
-
-// разбор логов в поисках самоблока
-func (h *AdminHandler) getSelfBlockedUsers() []string {
-	cmd := exec.Command("docker", "logs", "2mon", "--tail", "500")
-	output, _ := cmd.Output()
-	lines := strings.Split(string(output), "\n")
-
-	blockedMap := make(map[string]bool)
-	for _, line := range lines {
-		if strings.Contains(line, "send error to") && strings.Contains(line, "max api returned 403") {
-			// Извлекаем chat_id из строки вида "send error to 351317206: max api returned 403"
-			parts := strings.Fields(line)
-			for i, p := range parts {
-				if p == "to" && i+1 < len(parts) {
-					chatID := strings.TrimSuffix(parts[i+1], ":")
-					blockedMap[chatID] = true
-					break
-				}
-			}
-		}
-	}
-	var result []string
-	for chatID := range blockedMap {
-		result = append(result, chatID)
-	}
-	return result
 }

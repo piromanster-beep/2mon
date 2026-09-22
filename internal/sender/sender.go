@@ -15,12 +15,18 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// ErrorReporter сообщает результат попытки отправки в MAX.
+// err == nil — доставка успешна; иначе err описывает причину
+// (например HTTP 403, если бот заблокирован пользователем).
+type ErrorReporter func(chatID string, err error)
+
 type Sender struct {
 	botToken string
 	apiURL   string
 	limiter  *rate.Limiter
 	queue    chan model.Message
 	closed   atomic.Bool
+	reporter ErrorReporter
 }
 
 func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
@@ -30,6 +36,12 @@ func New(botToken, apiURL string, rateLimit, queueSize int) *Sender {
 		limiter:  rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
 		queue:    make(chan model.Message, queueSize),
 	}
+}
+
+// SetErrorReporter включает фиксацию результата каждой отправки.
+// Вызывать до Start (поле читается только из горутины sender).
+func (s *Sender) SetErrorReporter(r ErrorReporter) {
+	s.reporter = r
 }
 
 // Start запускает обработчик очереди. При отмене ctx очередь
@@ -59,8 +71,12 @@ func (s *Sender) dispatch(ctx context.Context, msg model.Message) {
 		log.Printf("[sender] limiter wait: %v", err)
 	}
 	log.Printf("[sender] to %s: %s", msg.ChatID, truncate(msg.Text, 50))
-	if err := s.sendToMax(ctx, msg); err != nil {
+	err := s.sendToMax(ctx, msg)
+	if err != nil {
 		log.Printf("[sender] send error to %s: %v", msg.ChatID, err)
+	}
+	if s.reporter != nil {
+		s.reporter(msg.ChatID, err)
 	}
 }
 
