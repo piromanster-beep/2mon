@@ -53,26 +53,14 @@ curl -X POST "https://platform-api.max.ru/subscriptions" \
 
 ## 6. Домен MAX API и сертификат Минцифры
 
-MAX рекомендует домен `platform-api2.max.ru` вместо `platform-api.max.ru`.
-Запросы к `platform-api2` подписаны корневым сертификатом Минцифры, которого
-нет в стандартном наборе `ca-certificates` Alpine. Если переключаете
-`MAX_API_URL` на `platform-api2.max.ru`, смонтируйте сертификат в контейнер
-и добавьте его в доверенные:
+## Сертификаты Минцифры
 
-```yaml
-# docker-compose.yml, сервис app
-    volumes:
-      - ./certs/russian_trusted_root_ca_pem.crt:/usr/local/share/ca-certificates/russian_trusted_root_ca_pem.crt:ro
-```
+Для работы с `platform-api2.max.ru` в Docker-образ добавлены корневой и выпускающий сертификаты Минцифры (папка `certs/`).
 
-```bash
-# после монтирования обновите хранилище доверенных сертификатов
-docker exec 2mon update-ca-certificates
-```
+Сертификаты периодически обновляются. Актуальные версии — на портале Госуслуг: https://www.gosuslugi.ru/crt
 
-Без доверенного корневого сертификата запросы к `platform-api2.max.ru`
-падают с ошибкой TLS (`x509: certificate signed by unknown authority`).
-Поэтому дефолт в проекте остаётся `platform-api.max.ru`.
+При обновлении: замените файлы в `certs/`, пересоберите образ `docker compose up -d --build`.
+
 
 Команды бота регистрируются отдельным запросом `PATCH /me/commands`
 (делается автоматически при старте сервиса).
