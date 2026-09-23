@@ -5,7 +5,7 @@ help:
 	@echo "  make check                   - gofmt + go vet + go test"
 	@echo "  make test                    - тесты (go test ./...)"
 	@echo "  make test-alert              - тестовый алерт из Zabbix (Docker)"
-	@echo "  make test-webhook TOKEN=xxx  - тестовый вебхук напрямую"
+	@echo "  make test-webhook TOKEN=xxx  - тестовый вебхук напрямую (curl)"
 	@echo "  make backup                  - бэкап MongoDB и .env"
 	@echo "  make restore FILE=путь       - восстановить из бэкапа"
 
@@ -24,7 +24,10 @@ test-alert:
 	./scripts/test-alert.sh
 
 test-webhook:
-	TOKEN=$(TOKEN) ./scripts/test-webhook.sh
+	@test -n "$(TOKEN)" || { echo "Укажите токен: make test-webhook TOKEN=xxx"; exit 1; }
+	curl -fsS -X POST "http://127.0.0.1:8080/wh/$(TOKEN)" \
+		-H "Content-Type: application/json" \
+		-d '{"subject":"Тест","message":"Проверка вебхука","severity":"info"}'
 
 backup:
 	./scripts/backup.sh

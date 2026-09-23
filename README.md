@@ -75,6 +75,9 @@ docker compose up -d
 5. Настроить Nginx + Certbot (конфиг в `deploy/nginx-2mon.conf`)
 6. Настроить вебхук в MAX на `https://ваш-домен.ru/bot`
 
+Обновление версии, миграции схемы, бэкап и восстановление — в
+[OPERATIONS.md](OPERATIONS.md).
+
 ## Переменные окружения
 
 | Переменная | Обязательно | По умолчанию | Описание |
@@ -133,10 +136,19 @@ docker compose up -d
 
 | Код | Значение |
 |-----|----------|
-| 200 | Сообщение поставлено в очередь |
-| 404 | Неверный токен |
+| 200 | Сообщение поставлено в очередь (`{"status":"queued"}`) |
+| 200 | Принят heartbeat (`{"status":"heartbeat_ok"}`) |
+| 400 | Тело запроса — не JSON |
 | 403 | Пользователь заблокирован |
+| 404 | Неверный токен |
 | 429 | Дневной лимит превышен |
+| 429 | Очередь отправки переполнена |
+| 500 | Внутренняя ошибка (БД, очередь) |
+
+Если `subject` равен `heartbeat` (без учёта регистра), сообщение не тратит
+дневной лимит — обновляется только время последнего сигнала.
+
+Полное описание — [API.md](API.md).
 
 ## Команды бота в MAX
 
@@ -144,7 +156,8 @@ docker compose up -d
 |---------|----------|
 | `/start` | Регистрация и получение токена |
 | `/token` | Повторно показать токен |
-| `/newtoken` | Сменить токен (старый перестаёт работать) |
+| `/newtoken` | Сменить токен — только предупреждает |
+| `/newtoken confirm` | Подтвердить смену токена (старый перестаёт работать) |
 | `/status` | Статистика за сегодня |
 | `/heartbeat` | Статус heartbeat |
 | `/bind` | Привязать группу (`/bind ID`, отвязка — `/bind off`) |
@@ -181,7 +194,14 @@ make test                     # только тесты
 go test -race -count=1 ./...  # с детектором гонок (нужен cgo)
 ```
 
-Тесты лежат рядом с кодом: `internal/config/config_test.go`, `internal/sender/sender_test.go`, `cmd/server/main_test.go`.
+Тесты лежат рядом с кодом:
+
+| Файл | Что покрывает |
+|------|----------------|
+| `internal/config/config_test.go` | дефолты, обязательные переменные, защита лимитов и ретенции |
+| `internal/sender/sender_test.go` | очередь, доставка, graceful shutdown |
+| `internal/handler/admin_test.go` | сессия админки: токен не равен паролю, `checkAuth` |
+| `cmd/server/main_test.go` | регистрация команд бота в MAX (`PATCH /me/commands`) |
 
 CI (`gitflic-ci.yaml`) запускается на каждый push и merge request: gofmt, go vet, `go test -race`, а на ветке `main` — ещё и сборка. Так сломанный код не попадает в `main`.
 
@@ -190,10 +210,16 @@ CI (`gitflic-ci.yaml`) запускается на каждый push и merge re
 - [ARCHITECTURE.md](ARCHITECTURE.md) — устройство сервиса
 - [API.md](API.md) — эндпоинты и форматы
 - [DEVELOPMENT.md](DEVELOPMENT.md) — разработка и добавление новых сервисов
-- [ZABBIX.md](ZABBIX.md), [MONITORING.md](MONITORING.md) — настройка Zabbix
-- [deploy/HTTPS.md](deploy/HTTPS.md) — настройка HTTPS
-- [SECURITY.md](SECURITY.md) — результаты пентеста
+- [OPERATIONS.md](OPERATIONS.md) — обновление, миграции, бэкап и восстановление, диагностика
+- [CONTRIBUTING.md](CONTRIBUTING.md) — как предложить изменения
+- [CHANGELOG.md](CHANGELOG.md) — история изменений
+- [ZABBIX.md](ZABBIX.md) — настройка Zabbix
 - [MONITORING.md](MONITORING.md) — подключение других систем мониторинга
+- [SECURITY.md](SECURITY.md) — результаты пентеста
+- [deploy/HTTPS.md](deploy/HTTPS.md) — настройка HTTPS
+- [deploy/nginx-2mon.conf](deploy/nginx-2mon.conf) — пример конфига Nginx
+- [deploy/zabbix-media-type-2mon.yaml](deploy/zabbix-media-type-2mon.yaml) — готовый Media type для Zabbix
+- [scripts/](scripts/) — `backup.sh`, `restore.sh`, `test-alert.sh`
 
 ## Лицензия
 

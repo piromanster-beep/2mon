@@ -3,7 +3,7 @@
 БЫСТРЫЙ СТАРТ
 
 Требования:
-  - Go 1.21+
+  - Go 1.22+ (см. go.mod)
   - Docker и Docker Compose
   - Токен бота MAX (получить в панели MAX для партнёров)
   - Домен с HTTPS (можно localhost для разработки)
@@ -25,11 +25,12 @@
 
   make check    — gofmt + go vet + go test (то же, что гоняет CI)
   make test     — только тесты: go test ./...
-  go test -race -count=1 ./...   — с детектором гонок
+  go test -race -count=1 ./...   — с детектором гонок (нужен cgo/gcc)
 
 Тесты лежат рядом с кодом:
-  internal/config/config_test.go    — дефолты конфига
+  internal/config/config_test.go    — дефолты конфига, защита лимитов
   internal/sender/sender_test.go    — очередь, доставка, graceful shutdown
+  internal/handler/admin_test.go    — сессия админки (токен, checkAuth)
   cmd/server/main_test.go           — регистрация команд бота в MAX
 
 CI: gitflic-ci.yaml (gofmt, go vet, go test -race, сборка на ветке main).
@@ -53,6 +54,12 @@ web/admin.html              — HTML админки
 deploy/
   nginx-2mon.conf           — конфиг Nginx
   HTTPS.md                  — инструкция по HTTPS
+  zabbix-media-type-2mon.yaml — готовый Media type (Webhook) для Zabbix
+scripts/
+  backup.sh                 — бэкап MongoDB и .env
+  restore.sh                — восстановление из бэкапа
+  test-alert.sh             — тестовый алерт из Zabbix
+Makefile                    — fmt / vet / test / check / backup / restore
 
 
 КАК ДОБАВИТЬ НОВЫЙ СЕРВИС МОНИТОРИНГА
@@ -85,3 +92,19 @@ deploy/
   golang.org/x/time/rate         — rate limiter
   github.com/robfig/cron/v3      — планировщик
   github.com/google/uuid         — генерация токенов
+
+
+ДОКУМЕНТАЦИЯ
+
+  README.md          — обзор и быстрый старт
+  ARCHITECTURE.md    — устройство сервиса
+  API.md             — эндпоинты и форматы
+  OPERATIONS.md      — обновление, миграции, бэкап/восстановление, диагностика
+  CONTRIBUTING.md    — как предложить изменения
+  CHANGELOG.md       — история изменений
+  ZABBIX.md          — настройка Zabbix
+  MONITORING.md      — другие системы мониторинга
+  SECURITY.md        — результаты пентеста
+  deploy/HTTPS.md    — настройка HTTPS
+
+При изменении поведения обновляйте документацию в том же merge request.
