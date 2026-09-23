@@ -6,6 +6,7 @@
    - Принимает вебхуки от систем мониторинга на /wh/{token}
    - Принимает обновления от MAX на /bot
    - Отдаёт админку на /admin
+   - Отдаёт проверку живости на /healthz
 
 2. ## Sender (очередь + rate limiter)
    - Все исходящие сообщения в MAX проходят через буферизированный канал
@@ -13,8 +14,8 @@
    - При остановке сервиса очередь дренируется (оставшиеся сообщения отправляются)
 
 3. ## Scheduler (планировщик)
-   - Ежедневная статистика пользователям (9:00 по будням)
-   - Ежедневная статистика админам (9:05 по будням)
+   - Ежедневная статистика пользователям (9:00, каждый день)
+   - Ежедневная статистика админам (9:05, каждый день)
    - Проверка heartbeat каждую минуту
 
 4. ## Notifier
@@ -22,8 +23,10 @@
    - Уведомления о проблемах с heartbeat
 
 5. ## MongoDB
-   - Коллекция users: chat_id, token, лимиты, heartbeat
+   - Коллекция users: chat_id, token, лимиты, heartbeat, привязка группы,
+     последняя ошибка отправки (last_send_error, last_send_error_at)
    - Коллекция messages_log: история сообщений для статистики
+   - Индексы и TTL-ретенция создаются автоматически при старте (см. OPERATIONS.md)
 
 ## ПОТОКИ ДАННЫХ
 
@@ -56,6 +59,8 @@ User:
   ID, ChatID, Token, IsActive, IsAdmin
   DailyLimit, MsgCountToday, MsgDate
   LastHeartbeat, HeartbeatInterval, HeartbeatAlertSent
+  GroupChatID
+  LastSendError, LastSendErrorAt
   CreatedAt
 ```
 MessageLog:
