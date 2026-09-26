@@ -46,6 +46,8 @@ func main() {
 
 	// Фиксируем результат отправки в Mongo: админка показывает, кому MAX
 	// отказывает (бот заблокирован/удалён — 403 и т.п.).
+	// При необратимых ошибках (chat.denied / error.dialog.suspended)
+	// пользователь автоматически банится (is_active=false).
 	snd.SetErrorReporter(func(chatID string, sendErr error) {
 		ectx, ecancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer ecancel()
@@ -55,8 +57,8 @@ func main() {
 			}
 			return
 		}
-		if err := st.SetSendError(ectx, chatID, sendErr.Error()); err != nil {
-			log.Printf("[sender] set send error %s: %v", chatID, err)
+		if err := st.MarkUserSendError(ectx, chatID, sendErr.Error()); err != nil {
+			log.Printf("[sender] mark send error %s: %v", chatID, err)
 		}
 	})
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gitflic.ru/piroman99/2mon/internal/model"
@@ -336,6 +337,30 @@ func (s *Store) SetSendError(ctx context.Context, chatID, reason string) error {
 			"last_send_error_at": time.Now(),
 		}},
 	)
+	return err
+}
+
+// MarkUserSendError запоминает причину ошибки отправки и при необходимости
+// автоматически банит пользователя (is_active=false).
+// Бан происходит только при необратимых ошибках: бот заблокирован
+// пользователем ("chat.denied") или диалог приостановлен ("error.dialog.suspended").
+// Прочие 403 (временные) не приводят к бану.
+func (s *Store) MarkUserSendError(ctx context.Context, chatID, errText string) error {
+	filter := bson.M{"$or": bson.A{
+		bson.M{"chat_id": chatID},
+		bson.M{"group_chat_id": chatID},
+	}}
+	update := bson.M{"$set": bson.M{
+		"last_send_error":    errText,
+		"last_send_error_at": time.Now(),
+	}}
+
+	// Необратимые ошибки: бот заблокирован или диалог приостановлен
+	if strings.Contains(errText, "chat.denied") || strings.Contains(errText, "error.dialog.suspended") {
+		update["$set"].(bson.M)["is_active"] = false
+	}
+
+	_, err := s.users.UpdateMany(ctx, filter, update)
 	return err
 }
 
