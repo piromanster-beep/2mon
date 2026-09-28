@@ -69,8 +69,8 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Сравнение постоянного времени: утечки длины/префикса по таймингу.
 	if subtle.ConstantTimeCompare([]byte(password), []byte(h.password)) != 1 {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Неверный пароль. <a href='/admin'>Назад</a>"))
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte("Неверный пароль. <a href='/admin'>Назад</a>"))
 		return
 	}
 
