@@ -98,6 +98,19 @@ cp .env ./backups/env_$(date +%Y%m%d)
 0 4 * * * cd /path/to/2mon && ./scripts/backup.sh >> backups/backup.log 2>&1
 ```
 
+## Бэкапы в S3
+
+Бэкапы автоматически загружаются в S3  при выполнении `make backup`.
+
+**Пути в S3:**
+- MongoDB: `s3://2mon-backup/mongo/2mon_YYYYMMDD_HHMMSS.archive`
+- .env: `s3://2mon-backup/mongo/env_YYYYMMDD_HHMMSS`
+
+**Автоматизация:** cron запускает `make backup` ежедневно в 3:00.
+
+**Локальные бэкапы** хранятся 7 дней, потом удаляются.
+
+**Восстановление:**
 ### Восстановление
 
 ```bash
@@ -109,6 +122,26 @@ make restore FILE=./backups/2mon_20260516_034829.archive
 
 > `--drop` удаляет коллекции, которые есть в дампе, перед вставкой.
 > Перед восстановлением на проде сделайте свежий бэкап текущего состояния.
+
+
+
+## S3-совместимые хранилища
+
+Скрипт `backup.sh` использует `s3cmd`, который работает с любым S3-совместимым хранилищем.
+
+**Cloud.ru:**
+- Endpoint: `s3.cloud.ru`
+- `host_bucket = s3.cloud.ru` (path-style)
+
+**Yandex Object Storage:**
+- Endpoint: `storage.yandexcloud.net`
+- `host_bucket = %(bucket)s.storage.yandexcloud.net`
+
+**MinIO (self-hosted):**
+- Endpoint: `your-minio-server:9000`
+- `host_bucket = %(bucket)s.your-minio-server:9000`
+
+Настройка: `s3cmd --configure`, ключи и endpoint от вашего провайдера.
 
 ### Перенос на другой сервер
 

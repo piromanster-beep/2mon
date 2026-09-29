@@ -8,6 +8,7 @@ help:
 	@echo "  make test-webhook TOKEN=xxx  - тестовый вебхук напрямую (curl)"
 	@echo "  make backup                  - бэкап MongoDB и .env"
 	@echo "  make restore FILE=путь       - восстановить из бэкапа"
+	@echo "  make restore-from-s3 FILE=путь       - восстановить из S3 бэкапа"
 
 fmt:
 	gofmt -w .
@@ -33,4 +34,7 @@ backup:
 	./scripts/backup.sh
 
 restore:
+	FILE=$(FILE) ./scripts/restore.sh
+
+restore-from-s3:
 	FILE=$(FILE) ./scripts/restore.sh
