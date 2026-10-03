@@ -124,6 +124,42 @@ make restore FILE=./backups/2mon_20260516_034829.archive
 > Перед восстановлением на проде сделайте свежий бэкап текущего состояния.
 
 
+### Ротация бэкапов
+
+Для бакета `2mon-backup` настроено правило Lifecycle:
+- Бэкапы старше **30 дней** удаляются автоматически
+- Неактуальные версии (после версионирования) удаляются через **7 дней**
+
+Настройка выполнена через AWS CLI. Правило хранится в файле `/tmp/lifecycle.json`:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "delete-old-backups",
+      "Filter": { "Prefix": "mongo/" },
+      "Expiration": { "Days": 30 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 7 },
+      "Status": "Enabled"
+    }
+  ]
+}
+```
+Пременить правило, для примера используем endpoint cloud.ru
+
+```
+aws --endpoint-url=https://s3.cloud.ru s3api put-bucket-lifecycle-configuration \
+  --bucket 2mon-backup \
+  --lifecycle-configuration file:///tmp/lifecycle.json
+```
+
+Проверить
+
+```
+aws --endpoint-url=https://s3.cloud.ru s3api get-bucket-lifecycle-configuration \
+  --bucket 2mon-backup
+```
+
 
 ## S3-совместимые хранилища
 
